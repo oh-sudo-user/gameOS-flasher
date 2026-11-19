@@ -29,7 +29,8 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build DMG (x64 + arm64)
-        run: npm run dist:mac
+        # --publish never: electron-builder auto-publishes in CI and fails without GH_TOKEN
+        run: npx electron-vite build && npx electron-builder --mac --publish never
         env:
           # CI has no signing identity; build unsigned instead of auto-discovering one
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
