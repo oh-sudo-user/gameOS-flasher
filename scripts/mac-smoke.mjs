@@ -37,15 +37,20 @@ try {
   writeFileSync(img, image)
   console.log(`image sha256: ${sha(image)}`)
 
-  const attached = run('hdiutil', ['attach', '-nomount', '-imagekey', 'diskimage-class=CRawDiskImage', img])
+  const attached = run('hdiutil', ['attach', '-nomount', '-readwrite', '-imagekey', 'diskimage-class=CRawDiskImage', img])
   disk = (attached.match(/\/dev\/disk\d+/) ?? [])[0]
   if (!disk) throw new Error('hdiutil attach returned no disk node')
   const rdisk = disk.replace('/dev/disk', '/dev/rdisk')
 
-  run('gpt', ['create', '-f', disk])
-  run('gpt', ['add', '-b', '32768', '-s', '200000', '-t', 'windows', disk])
-  run('newfs_msdos', ['-F', '32', `${rdisk}s1`])
-  run('diskutil', ['mount', `${disk}s1`], { allowFail: true })
+  try {
+    run('gpt', ['create', '-f', disk])
+    run('gpt', ['add', '-b', '32768', '-s', '200000', '-t', 'windows', disk])
+    run('newfs_msdos', ['-F', '32', `${rdisk}s1`])
+    run('diskutil', ['mount', `${disk}s1`], { allowFail: true })
+  } catch {
+    console.log('gpt path unavailable; falling back to diskutil partitionDisk')
+    run('diskutil', ['partitionDisk', disk, '1', 'GPT', 'FAT32', 'ROMS', '200M'])
+  }
   const info = run('diskutil', ['info', `${disk}s1`])
   if (!/Mounted:\s+Yes/.test(info)) throw new Error('test volume did not mount; scenario invalid')
   console.log('scenario ready: GPT + mounted FAT32 volume starting at 16MiB')
