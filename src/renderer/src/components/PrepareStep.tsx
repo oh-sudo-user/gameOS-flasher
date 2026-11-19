@@ -21,6 +21,7 @@ interface PrepareStepProps {
   model: ModelInfo
   prepare: PrepareUiState
   release: ReleaseStatus
+  selectedSource: PrepareSourceId
   onChooseSource: (source: SourceId) => void
   onRefreshModels: () => void
   onRetry: () => void
@@ -47,6 +48,7 @@ export function PrepareStep({
   model,
   prepare,
   release,
+  selectedSource,
   onChooseSource,
   onRefreshModels,
   onRetry,
@@ -120,7 +122,7 @@ export function PrepareStep({
 
       <div className="source-grid">
         {image.sources.map((source) => {
-          const active = prepare.sourceId === source.id
+          const active = selectedSource === source.id
           const Icon = source.id === 'mirror' ? IconGithub : IconCloud
           return (
             <button
@@ -143,40 +145,74 @@ export function PrepareStep({
             </button>
           )
         })}
+        <button
+          type="button"
+          className={`source-card ${selectedSource === 'local' ? 'is-selected' : ''}`}
+          onClick={onLocal}
+          disabled={running && prepare.sourceId !== 'local'}
+          aria-pressed={selectedSource === 'local'}
+        >
+          <span className="source-icon">
+            <IconFolder size={19} />
+          </span>
+          <span className="source-copy">
+            <strong>{t('prepare.source.local')}</strong>
+            <span>{t('prepare.source.localDesc')}</span>
+          </span>
+          <span className="radio-mark" />
+        </button>
       </div>
 
-      {prepare.sourceId === 'local' && (
-        <div className="local-note">
-          <IconFolder size={15} />
-          {t('prepare.localInUse')}
-          {prepare.fileName ? `：${prepare.fileName}` : ''}
-        </div>
-      )}
-
-      {running && (
-        <div className="progress-panel">
-          <div className="progress-head">
-            <span className="progress-title">
-              <span className="pulse-dot" />
-              {phaseText}
-            </span>
-            <span className="progress-percent">{formatPercent(prepare.percent)}</span>
+      {running &&
+        (prepare.sourceId === 'local' ? (
+          <div className="progress-panel">
+            <div className="progress-head">
+              <span className="progress-title">
+                <span className="pulse-dot" />
+                {prepare.message || phaseText}
+              </span>
+              {prepare.received > 0 && <span className="progress-percent">{formatPercent(prepare.percent)}</span>}
+            </div>
+            {prepare.received > 0 && (
+              <>
+                <div className="progress-track">
+                  <div className="progress-fill" style={{ width: `${Math.max(prepare.percent, 0.6)}%` }} />
+                </div>
+                <div className="progress-stats">
+                  <span>
+                    {formatBytes(prepare.received)} / {formatBytes(prepare.total)}
+                  </span>
+                </div>
+              </>
+            )}
+            <button type="button" className="btn btn-ghost btn-sm progress-cancel" onClick={onCancel}>
+              {t('common.cancel')}
+            </button>
           </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${Math.max(prepare.percent, 0.6)}%` }} />
+        ) : (
+          <div className="progress-panel">
+            <div className="progress-head">
+              <span className="progress-title">
+                <span className="pulse-dot" />
+                {phaseText}
+              </span>
+              <span className="progress-percent">{formatPercent(prepare.percent)}</span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${Math.max(prepare.percent, 0.6)}%` }} />
+            </div>
+            <div className="progress-stats">
+              <span>
+                {formatBytes(prepare.received)} / {formatBytes(prepare.total)}
+              </span>
+              {prepare.phase === 'downloading' && <span>{formatSpeed(prepare.speed)}</span>}
+              <span className="progress-message">{prepare.message}</span>
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm progress-cancel" onClick={onCancel}>
+              {t('common.cancel')}
+            </button>
           </div>
-          <div className="progress-stats">
-            <span>
-              {formatBytes(prepare.received)} / {formatBytes(prepare.total)}
-            </span>
-            {prepare.phase === 'downloading' && <span>{formatSpeed(prepare.speed)}</span>}
-            <span className="progress-message">{prepare.message}</span>
-          </div>
-          <button type="button" className="btn btn-ghost btn-sm progress-cancel" onClick={onCancel}>
-            {t('common.cancel')}
-          </button>
-        </div>
-      )}
+        ))}
 
       {ready && (
         <div className="result-panel result-success">
@@ -236,10 +272,6 @@ export function PrepareStep({
               <IconRefresh size={15} />
               {t('prepare.redownload')}
             </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onLocal}>
-              <IconFolder size={15} />
-              {t('prepare.useLocal')}
-            </button>
             {prepare.filePath && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={onReveal}>
                 <IconFolder size={15} />
@@ -266,37 +298,46 @@ export function PrepareStep({
           <div className="result-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onRetry}>
               <IconRefresh size={15} />
-              {t('prepare.retryDownload')}
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onLocal}>
-              <IconFolder size={15} />
-              {t('prepare.useLocal')}
+              {prepare.sourceId === 'local' ? t('common.retry') : t('prepare.retryDownload')}
             </button>
           </div>
         </div>
       )}
 
-      {!running && !ready && !failed && (
-        <div className="waiting-panel">
-          <span className="waiting-icon">
-            <IconDownload size={24} />
-          </span>
-          <div>
-            <h3>{t('prepare.waitingTitle', { file: image.fileName })}</h3>
-            <p>{t('prepare.waitingBody', { size: formatBytes(image.size) })}</p>
+      {!running && !ready && !failed &&
+        (selectedSource === 'local' ? (
+          <div className="waiting-panel">
+            <span className="waiting-icon">
+              <IconFolder size={24} />
+            </span>
+            <div>
+              <h3>{t('prepare.pickLocal')}</h3>
+              <p>{t('prepare.waitingLocalBody')}</p>
+            </div>
+            <div className="waiting-actions">
+              <button type="button" className="btn btn-primary btn-sm" onClick={onLocal}>
+                <IconFolder size={15} />
+                {t('dialog.pickImageButton')}
+              </button>
+            </div>
           </div>
-          <div className="waiting-actions">
-            <button type="button" className="btn btn-primary btn-sm" onClick={onRetry}>
-              <IconDownload size={15} />
-              {t('prepare.startDownload')}
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onLocal}>
-              <IconFolder size={15} />
-              {t('prepare.pickLocal')}
-            </button>
+        ) : (
+          <div className="waiting-panel">
+            <span className="waiting-icon">
+              <IconDownload size={24} />
+            </span>
+            <div>
+              <h3>{t('prepare.waitingTitle', { file: image.fileName })}</h3>
+              <p>{t('prepare.waitingBody', { size: formatBytes(image.size) })}</p>
+            </div>
+            <div className="waiting-actions">
+              <button type="button" className="btn btn-primary btn-sm" onClick={onRetry}>
+                <IconDownload size={15} />
+                {t('prepare.startDownload')}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        ))}
 
       {prepare.sha256 && !ready && (
         <div className="hash-inline">

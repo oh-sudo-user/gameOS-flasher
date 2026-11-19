@@ -595,6 +595,7 @@ export default function App(): JSX.Element {
                   model={model}
                   prepare={prepare}
                   release={boot.release}
+                  selectedSource={sourceId}
                   onChooseSource={chooseSource}
                   onRefreshModels={() => void handleRefreshModels()}
                   onRetry={handleRetryPrepare}
