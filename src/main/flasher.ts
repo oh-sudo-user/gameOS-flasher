@@ -128,7 +128,12 @@ function launchMac(
   ].join('\n')
   writeFileSync(scriptPath, script, { encoding: 'utf8', mode: 0o755 })
 
-  const appleScript = `do shell script "/bin/sh " & quoted form of ${JSON.stringify(scriptPath)} with administrator privileges`
+  // AppleScript's default 2-minute timeout would kill long flashes mid-write
+  const appleScript = [
+    'with timeout of 7200 seconds',
+    `do shell script "/bin/sh " & quoted form of ${JSON.stringify(scriptPath)} with administrator privileges`,
+    'end timeout'
+  ].join('\n')
   return spawn('osascript', ['-e', appleScript])
 }
 

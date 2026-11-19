@@ -14,6 +14,7 @@ export interface PrepareUiState {
   sourceId: PrepareSourceId
   sha256: string
   expectedSha256: string
+  fileSha256: string
   hashMatched: boolean | null
   filePath: string
   fileName: string
@@ -49,6 +50,7 @@ export const initialPrepare: PrepareUiState = {
   sourceId: 'official',
   sha256: '',
   expectedSha256: '',
+  fileSha256: '',
   hashMatched: null,
   filePath: '',
   fileName: '',

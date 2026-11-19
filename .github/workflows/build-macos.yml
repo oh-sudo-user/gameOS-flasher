@@ -11,7 +11,24 @@ permissions:
   contents: write
 
 jobs:
+  verify:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout at tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Flash helper smoke test (mounted FAT32 disk, read-back verify)
+        run: sudo env "PATH=$PATH" node scripts/mac-smoke.mjs
+
   dmg:
+    needs: verify
     runs-on: macos-latest
     steps:
       - name: Checkout at tag
