@@ -102,6 +102,14 @@ function restoreWindows() {
   automountDisabled = false
 }
 
+// macOS 的块设备缓冲缓存可能残留旧卷的脏块：裸写入绕过缓存，但缓存
+// 里的旧脏块会在 sync/卸载时落盘覆盖新数据。写入前后各 flush 一次。
+function syncSystem() {
+  try {
+    spawnSync('sync', [], { timeout: 30_000 })
+  } catch {}
+}
+
 function closeAll() {
   restoreWindows()
   if (imageFd !== null) {
@@ -215,6 +223,7 @@ if (identityPatch) {
 }
 
 if (process.platform === 'win32') prepareWindowsDisk()
+if (process.platform === 'darwin') syncSystem()
 
 try {
   deviceFd = fs.openSync(device, 'r+')
@@ -302,6 +311,7 @@ try {
   } catch {
     // 部分平台不支持对物理设备 fsync，忽略即可
   }
+  if (process.platform === 'darwin') syncSystem()
   closeAll()
 
   finished = true

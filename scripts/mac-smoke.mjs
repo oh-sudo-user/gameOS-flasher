@@ -12,6 +12,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const helper = path.join(root, 'resources', 'flash-helper.js')
 const SIZE = 256 * 1024 * 1024
 const img = path.resolve('smoke.img')
+const diskImg = path.resolve('smoke-disk.img')
 const progressPath = path.resolve('smoke-progress.json')
 const cancelPath = path.resolve('smoke-cancel.json')
 
@@ -35,9 +36,12 @@ try {
     image.writeUInt32LE(s, i)
   }
   writeFileSync(img, image)
+  // backing file must be separate from the source image: the helper would
+  // otherwise read the very file it is writing through the attached disk
+  writeFileSync(diskImg, Buffer.alloc(SIZE))
   console.log(`image sha256: ${sha(image)}`)
 
-  const attached = run('hdiutil', ['attach', '-nomount', '-readwrite', '-imagekey', 'diskimage-class=CRawDiskImage', img])
+  const attached = run('hdiutil', ['attach', '-nomount', '-readwrite', '-imagekey', 'diskimage-class=CRawDiskImage', diskImg])
   disk = (attached.match(/\/dev\/disk\d+/) ?? [])[0]
   if (!disk) throw new Error('hdiutil attach returned no disk node')
   const rdisk = disk.replace('/dev/disk', '/dev/rdisk')
@@ -85,16 +89,17 @@ try {
   // bytes that actually persisted, which is what a real card would retain
   run('hdiutil', ['detach', '-force', disk])
   disk = ''
-  const persisted = sha(readFileSync(img))
+  const persisted = sha(readFileSync(diskImg))
   console.log(`device: ${persisted}\nimage : ${sha(image)}`)
   if (persisted !== sha(image)) {
-    firstDiff(readFileSync(img), image)
+    firstDiff(readFileSync(diskImg), image)
     throw new Error('READ-BACK MISMATCH')
   }
   console.log('SMOKE OK')
 } finally {
   if (disk) run('hdiutil', ['detach', '-force', disk], { allowFail: true })
   rmSync(img, { force: true })
+  rmSync(diskImg, { force: true })
   rmSync(progressPath, { force: true })
   rmSync(cancelPath, { force: true })
 }
@@ -105,6 +110,11 @@ function firstDiff(a, b) {
     if (a[i] !== b[i]) {
       const at = Math.max(0, i - 16)
       console.log(`first diff at ${i} (0x${i.toString(16)})`)
+      if (i === 0 && a[0] === 0) {
+        let z = 0
+        while (z < a.length && a[z] === 0) z++
+        console.log(`leading zero run: ${z} bytes (0x${z.toString(16)})`)
+      }
       console.log(`got : ${a.subarray(at, at + 48).toString('hex')}`)
       console.log(`want: ${b.subarray(at, at + 48).toString('hex')}`)
       return
