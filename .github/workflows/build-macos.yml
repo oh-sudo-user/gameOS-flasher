@@ -1,0 +1,54 @@
+name: Build macOS DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build from and attach artifacts to (e.g. v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout at tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build DMG (x64 + arm64)
+        run: npm run dist:mac
+        env:
+          # CI has no signing identity; build unsigned instead of auto-discovering one
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Compute checksums
+        run: |
+          shopt -s nullglob
+          rm -f release/dmg.sha256
+          for f in release/*.dmg; do
+            shasum -a 256 "$f" >> release/dmg.sha256
+          done
+          cat release/dmg.sha256
+
+      - name: Upload DMGs to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          files: |
+            release/*.dmg
+            release/dmg.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
