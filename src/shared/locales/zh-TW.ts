@@ -97,6 +97,9 @@ export const zhTW: Messages = {
   'prepare.waitingTitle': '準備下載 {file}',
   'prepare.waitingBody': '預計下載 {size}，完成後會自動驗證 SHA-256。',
   'prepare.start': '開始',
+  'prepare.startDownload': '開始下載',
+  'prepare.pickLocal': '使用本機映像',
+  'prepare.reveal': '開啟所在資料夾',
   'prepare.localLink': '已有映像檔案？選擇本機映像',
   'prepare.computed': '已計算 SHA-256',
 
@@ -146,6 +149,13 @@ export const zhTW: Messages = {
   'done.nextTitle': '接下來',
   'done.nextBody': '安全拔出記憶卡，插入裝置後開機。首次啟動需要初始化檔案系統，通常需要 1–2 分鐘，請耐心等待。',
   'done.reveal': '開啟映像位置',
+  'done.cleanupTitle': '映像清理',
+  'done.cleanupBody': '已下載的映像仍佔用 {size} 本機快取空間，是否保留？',
+  'done.cleanupHint': '預設不保留，重新燒錄時會重新下載。',
+  'done.cleanupDelete': '刪除映像',
+  'done.cleanupKeep': '保留映像',
+  'done.cleanupRemoved': '已刪除快取中的映像檔案',
+  'done.cleanupKept': '已保留映像檔案',
   'done.again': '再刷一張',
 
   'side.title': '刷寫摘要',

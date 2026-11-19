@@ -97,6 +97,9 @@ export const zhCN: Messages = {
   'prepare.waitingTitle': '准备下载 {file}',
   'prepare.waitingBody': '预计下载 {size}，完成后会自动校验 SHA-256。',
   'prepare.start': '开始',
+  'prepare.startDownload': '开始下载',
+  'prepare.pickLocal': '使用本地镜像',
+  'prepare.reveal': '打开所在文件夹',
   'prepare.localLink': '已有镜像文件？选择本地镜像',
   'prepare.computed': '已计算 SHA-256',
 
@@ -146,6 +149,13 @@ export const zhCN: Messages = {
   'done.nextTitle': '接下来',
   'done.nextBody': '安全拔出存储卡，插入设备后开机。首次启动需要初始化文件系统，通常需要 1–2 分钟，请耐心等待。',
   'done.reveal': '打开镜像位置',
+  'done.cleanupTitle': '镜像清理',
+  'done.cleanupBody': '已下载的镜像仍占用 {size} 本地缓存空间，是否保留？',
+  'done.cleanupHint': '默认不保留，重新刷写时会重新下载。',
+  'done.cleanupDelete': '删除镜像',
+  'done.cleanupKeep': '保留镜像',
+  'done.cleanupRemoved': '已删除缓存中的镜像文件',
+  'done.cleanupKept': '已保留镜像文件',
   'done.again': '再刷一张',
 
   'side.title': '刷写摘要',

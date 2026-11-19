@@ -203,6 +203,7 @@ export default function App(): JSX.Element {
           total: result.size,
           sha256: result.sha256,
           expectedSha256: result.expectedSha256,
+          fileSha256: result.fileSha256,
           hashMatched: result.hashMatched,
           filePath: result.filePath,
           fileName: result.fileName,
@@ -225,15 +226,6 @@ export default function App(): JSX.Element {
     },
     [t]
   )
-
-  useEffect(() => {
-    if (stage !== 'prepare' || !model) return
-    if (sourceId === 'local') return
-    if (prepare.status === 'running') return
-    if (prepare.status === 'ready' && prepare.modelId === model.id && prepare.sourceId === sourceId) return
-    void beginPrepare(model, sourceId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, model, sourceId, bootAttempt])
 
   const chooseSource = (next: SourceId): void => {
     setSourceId(next)
@@ -272,6 +264,7 @@ export default function App(): JSX.Element {
           percent: 100,
           sha256: result.sha256,
           expectedSha256: result.expectedSha256,
+          fileSha256: result.fileSha256,
           hashMatched: false,
           filePath: result.filePath,
           fileName: result.fileName,
@@ -290,6 +283,7 @@ export default function App(): JSX.Element {
         percent: 100,
         sha256: result.sha256,
         expectedSha256: result.expectedSha256,
+        fileSha256: result.fileSha256,
         hashMatched: result.hashMatched,
         filePath: result.filePath,
         fileName: result.fileName,
@@ -407,7 +401,7 @@ export default function App(): JSX.Element {
       const result = await window.api.startFlash({
         jobId,
         imagePath: prepare.filePath,
-        expectedSha256: prepare.expectedSha256,
+        expectedSha256: prepare.fileSha256,
         device: drive.device,
         deviceLabel: drive.name,
         modelName: model.name,
@@ -606,6 +600,9 @@ export default function App(): JSX.Element {
                   onRetry={handleRetryPrepare}
                   onCancel={handleCancelPrepare}
                   onLocal={() => void handleLocalImage()}
+                  onReveal={() => {
+                    if (prepare.filePath) void window.api.revealPath(prepare.filePath)
+                  }}
                   onBack={handlePrepareBack}
                   onContinue={() => {
                     if (prepare.status === 'ready') {
@@ -646,6 +643,13 @@ export default function App(): JSX.Element {
                   prepare={prepare}
                   flash={flash}
                   onRestart={handleRestart}
+                  onCleanup={async (filePath) => {
+                    try {
+                      return await window.api.cleanupImage(filePath)
+                    } catch {
+                      return false
+                    }
+                  }}
                   onReveal={() => {
                     if (prepare.filePath) void window.api.revealPath(prepare.filePath)
                   }}

@@ -98,6 +98,9 @@ export const en = {
   'prepare.waitingTitle': 'Ready to download {file}',
   'prepare.waitingBody': 'About {size}. SHA-256 is verified automatically.',
   'prepare.start': 'Start',
+  'prepare.startDownload': 'Start download',
+  'prepare.pickLocal': 'Use a local image',
+  'prepare.reveal': 'Open containing folder',
   'prepare.localLink': 'Already have an image? Choose a local file',
   'prepare.computed': 'Calculated SHA-256',
 
@@ -147,6 +150,13 @@ export const en = {
   'done.nextTitle': 'Next steps',
   'done.nextBody': 'Eject the card safely and insert it into your device. First boot initializes the filesystem and may take 1–2 minutes.',
   'done.reveal': 'Show image file',
+  'done.cleanupTitle': 'Image cleanup',
+  'done.cleanupBody': 'The downloaded image still takes up {size} of cache space. Keep it or delete it now?',
+  'done.cleanupHint': 'Deleted by default — re-flashing simply downloads it again.',
+  'done.cleanupDelete': 'Delete image',
+  'done.cleanupKeep': 'Keep image',
+  'done.cleanupRemoved': 'Image files removed from cache',
+  'done.cleanupKept': 'Image kept in cache',
   'done.again': 'Flash another card',
 
   'side.title': 'Flash summary',

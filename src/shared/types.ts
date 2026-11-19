@@ -131,6 +131,8 @@ export interface PrepareResult {
   size: number
   sha256: string
   expectedSha256: string
+  /** 实际写入文件（解压后的 .img）的 SHA-256，用于刷写前二次校验 */
+  fileSha256: string
   hashMatched: boolean | null
   fromCache: boolean
   sourceId: PrepareSourceId
@@ -181,6 +183,7 @@ export interface FlasherApi {
   listDrives(): Promise<DriveInfo[]>
   prepareImage(options: PrepareImageOptions): Promise<PrepareResult>
   prepareLocalImage(options: PrepareLocalOptions): Promise<PrepareResult | null>
+  cleanupImage(filePath: string): Promise<boolean>
   cancelPrepare(jobId: string): Promise<void>
   startFlash(options: StartFlashOptions): Promise<FlashResult>
   cancelFlash(jobId: string): Promise<void>

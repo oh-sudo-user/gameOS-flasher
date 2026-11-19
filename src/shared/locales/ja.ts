@@ -97,6 +97,9 @@ export const ja: Messages = {
   'prepare.waitingTitle': '{file} をダウンロードする準備ができました',
   'prepare.waitingBody': '約 {size}。完了後に SHA-256 を自動検証します。',
   'prepare.start': '開始',
+  'prepare.startDownload': 'ダウンロード開始',
+  'prepare.pickLocal': 'ローカルイメージを使用',
+  'prepare.reveal': '保存先のフォルダを開く',
   'prepare.localLink': 'イメージが手元にありますか？ローカルファイルを選択',
   'prepare.computed': '計算済み SHA-256',
 
@@ -146,6 +149,13 @@ export const ja: Messages = {
   'done.nextTitle': '次の手順',
   'done.nextBody': 'カードを安全に取り出し、本体に挿して起動してください。初回起動時はファイルシステムの初期化に 1〜2 分かかります。',
   'done.reveal': 'イメージの場所を開く',
+  'done.cleanupTitle': 'イメージの削除',
+  'done.cleanupBody': 'ダウンロードしたイメージが {size} のキャッシュ容量を占めています。保持しますか？',
+  'done.cleanupHint': '既定では保持しません。再書き込み時は再度ダウンロードされます。',
+  'done.cleanupDelete': 'イメージを削除',
+  'done.cleanupKeep': 'イメージを保持',
+  'done.cleanupRemoved': 'キャッシュ内のイメージを削除しました',
+  'done.cleanupKept': 'イメージを保持しました',
   'done.again': '別のカードに書き込む',
 
   'side.title': '書き込み概要',

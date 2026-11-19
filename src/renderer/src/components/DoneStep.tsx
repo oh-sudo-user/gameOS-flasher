@@ -1,9 +1,9 @@
-import type { JSX } from 'react'
+import { useState, type JSX } from 'react'
 import type { DriveInfo, ModelInfo } from '../../../shared/types'
 import type { FlashUiState, PrepareUiState } from '../types'
 import { formatBytes, formatDuration, shortHash } from '../format'
 import { useI18n } from '../i18n'
-import { IconCheck, IconFolder, IconRefresh, IconSparkles } from './Icons'
+import { IconCheck, IconFolder, IconRefresh, IconSparkles, IconTrash } from './Icons'
 
 interface DoneStepProps {
   model: ModelInfo
@@ -11,14 +11,44 @@ interface DoneStepProps {
   prepare: PrepareUiState
   flash: FlashUiState
   onRestart: () => void
+  onCleanup: (filePath: string) => Promise<boolean>
   onReveal: () => void
 }
 
-export function DoneStep({ model, drive, prepare, flash, onRestart, onReveal }: DoneStepProps): JSX.Element {
+export function DoneStep({
+  model,
+  drive,
+  prepare,
+  flash,
+  onRestart,
+  onCleanup,
+  onReveal
+}: DoneStepProps): JSX.Element {
   const { t } = useI18n()
+  const [cleanup, setCleanup] = useState<'pending' | 'kept' | 'removed'>('pending')
   const elapsed = flash.startedAt && flash.finishedAt ? (flash.finishedAt - flash.startedAt) / 1000 : 0
   const version = prepare.version || model.image?.version || '—'
   const totalSize = prepare.total || model.image?.size || 0
+  // 仅当镜像来自缓存（下载 / 本地 gz 解压）时才提供清理
+  const cleanupApplies =
+    prepare.sourceId !== 'local' || prepare.fileName.startsWith('local-')
+
+  const handleCleanupDelete = async (): Promise<void> => {
+    if (!prepare.filePath) {
+      setCleanup('removed')
+      return
+    }
+    await onCleanup(prepare.filePath)
+    setCleanup('removed')
+  }
+
+  const handleAgain = async (): Promise<void> => {
+    // 默认不保留：未手动选择时，继续操作前先删除缓存镜像
+    if (cleanup === 'pending' && cleanupApplies && prepare.filePath) {
+      await handleCleanupDelete()
+    }
+    onRestart()
+  }
 
   return (
     <div className="stage-enter done-stage">
@@ -71,12 +101,42 @@ export function DoneStep({ model, drive, prepare, flash, onRestart, onReveal }: 
         </div>
       </div>
 
+      {cleanupApplies && (
+        <div className="cleanup-card">
+          {cleanup === 'pending' ? (
+            <>
+              <div>
+                <h3>{t('done.cleanupTitle')}</h3>
+                <p>{t('done.cleanupBody', { size: formatBytes(totalSize) })}</p>
+                <p className="cleanup-hint">{t('done.cleanupHint')}</p>
+              </div>
+              <div className="cleanup-actions">
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => void handleCleanupDelete()}>
+                  <IconTrash size={15} />
+                  {t('done.cleanupDelete')}
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCleanup('kept')}>
+                  {t('done.cleanupKeep')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="cleanup-state">
+              <IconCheck size={16} />
+              {cleanup === 'removed' ? t('done.cleanupRemoved') : t('done.cleanupKept')}
+            </div>
+          )}
+        </div>
+      )}
+
       <footer className="stage-actions stage-actions-end">
-        <button type="button" className="btn btn-ghost" onClick={onReveal}>
-          <IconFolder size={16} />
-          {t('done.reveal')}
-        </button>
-        <button type="button" className="btn btn-primary" onClick={onRestart}>
+        {cleanup !== 'removed' && (
+          <button type="button" className="btn btn-ghost" onClick={onReveal}>
+            <IconFolder size={16} />
+            {t('done.reveal')}
+          </button>
+        )}
+        <button type="button" className="btn btn-primary" onClick={() => void handleAgain()}>
           <IconRefresh size={16} />
           {t('done.again')}
         </button>

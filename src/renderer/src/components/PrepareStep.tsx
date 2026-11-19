@@ -26,6 +26,7 @@ interface PrepareStepProps {
   onRetry: () => void
   onCancel: () => void
   onLocal: () => void
+  onReveal: () => void
   onBack: () => void
   onContinue: () => void
 }
@@ -51,6 +52,7 @@ export function PrepareStep({
   onRetry,
   onCancel,
   onLocal,
+  onReveal,
   onBack,
   onContinue
 }: PrepareStepProps): JSX.Element {
@@ -238,6 +240,12 @@ export function PrepareStep({
               <IconFolder size={15} />
               {t('prepare.useLocal')}
             </button>
+            {prepare.filePath && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onReveal}>
+                <IconFolder size={15} />
+                {t('prepare.reveal')}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -277,16 +285,18 @@ export function PrepareStep({
             <h3>{t('prepare.waitingTitle', { file: image.fileName })}</h3>
             <p>{t('prepare.waitingBody', { size: formatBytes(image.size) })}</p>
           </div>
-          <button type="button" className="btn btn-primary btn-sm" onClick={onRetry}>
-            {t('prepare.start')}
-          </button>
+          <div className="waiting-actions">
+            <button type="button" className="btn btn-primary btn-sm" onClick={onRetry}>
+              <IconDownload size={15} />
+              {t('prepare.startDownload')}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onLocal}>
+              <IconFolder size={15} />
+              {t('prepare.pickLocal')}
+            </button>
+          </div>
         </div>
       )}
-
-      <button type="button" className="link-btn" onClick={onLocal} disabled={running}>
-        <IconFolder size={15} />
-        {t('prepare.localLink')}
-      </button>
 
       {prepare.sha256 && !ready && (
         <div className="hash-inline">

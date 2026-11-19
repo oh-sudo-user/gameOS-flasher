@@ -97,6 +97,9 @@ export const ko: Messages = {
   'prepare.waitingTitle': '{file} 다운로드 준비 완료',
   'prepare.waitingBody': '약 {size}. 완료 후 SHA-256을 자동으로 검증합니다.',
   'prepare.start': '시작',
+  'prepare.startDownload': '다운로드 시작',
+  'prepare.pickLocal': '로컬 이미지 사용',
+  'prepare.reveal': '저장 폴더 열기',
   'prepare.localLink': '이미지가 있나요? 로컬 파일 선택',
   'prepare.computed': '계산된 SHA-256',
 
@@ -146,6 +149,13 @@ export const ko: Messages = {
   'done.nextTitle': '다음 단계',
   'done.nextBody': '카드를 안전하게 분리해 기기에 삽입하고 전원을 켜세요. 첫 부팅은 파일 시스템 초기화로 1–2분 걸릴 수 있습니다.',
   'done.reveal': '이미지 위치 열기',
+  'done.cleanupTitle': '이미지 정리',
+  'done.cleanupBody': '다운로드한 이미지가 {size}의 캐시 공간을 차지하고 있습니다. 보관하시겠습니까?',
+  'done.cleanupHint': '기본값은 보관하지 않음이며, 다시 플래시하면 새로 다운로드됩니다.',
+  'done.cleanupDelete': '이미지 삭제',
+  'done.cleanupKeep': '이미지 보관',
+  'done.cleanupRemoved': '캐시에서 이미지 파일을 삭제했습니다',
+  'done.cleanupKept': '이미지 파일을 보관했습니다',
   'done.again': '다른 카드에 쓰기',
 
   'side.title': '쓰기 요약',

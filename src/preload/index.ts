@@ -8,6 +8,7 @@ const api: FlasherApi = {
   listDrives: () => ipcRenderer.invoke('drives:list'),
   prepareImage: (options) => ipcRenderer.invoke('image:prepare', options),
   prepareLocalImage: (options) => ipcRenderer.invoke('image:prepare-local', options),
+  cleanupImage: (filePath: string) => ipcRenderer.invoke('image:cleanup', filePath),
   cancelPrepare: (jobId) => ipcRenderer.invoke('image:cancel', jobId),
   startFlash: (options) => ipcRenderer.invoke('flash:start', options),
   cancelFlash: (jobId) => ipcRenderer.invoke('flash:cancel', jobId),

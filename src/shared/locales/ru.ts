@@ -97,6 +97,9 @@ export const ru: Messages = {
   'prepare.waitingTitle': 'Готово к загрузке {file}',
   'prepare.waitingBody': 'Около {size}. SHA-256 проверится автоматически.',
   'prepare.start': 'Начать',
+  'prepare.startDownload': 'Начать загрузку',
+  'prepare.pickLocal': 'Использовать локальный образ',
+  'prepare.reveal': 'Открыть папку с образом',
   'prepare.localLink': 'Уже есть образ? Выберите локальный файл',
   'prepare.computed': 'Вычисленный SHA-256',
 
@@ -146,6 +149,13 @@ export const ru: Messages = {
   'done.nextTitle': 'Что дальше',
   'done.nextBody': 'Безопасно извлеките карту и вставьте её в устройство. Первая загрузка инициализирует файловую систему и может занять 1–2 минуты.',
   'done.reveal': 'Показать файл образа',
+  'done.cleanupTitle': 'Очистка образа',
+  'done.cleanupBody': 'Скачанный образ занимает {size} в кэше. Сохранить его или удалить?',
+  'done.cleanupHint': 'По умолчанию образ удаляется — при повторной записи он скачается заново.',
+  'done.cleanupDelete': 'Удалить образ',
+  'done.cleanupKeep': 'Сохранить образ',
+  'done.cleanupRemoved': 'Файлы образа удалены из кэша',
+  'done.cleanupKept': 'Образ сохранён в кэше',
   'done.again': 'Прошить другую карту',
 
   'side.title': 'Сводка прошивки',

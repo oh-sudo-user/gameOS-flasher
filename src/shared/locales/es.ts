@@ -97,6 +97,9 @@ export const es: Messages = {
   'prepare.waitingTitle': 'Listo para descargar {file}',
   'prepare.waitingBody': 'Unos {size}. El SHA-256 se verifica automáticamente.',
   'prepare.start': 'Empezar',
+  'prepare.startDownload': 'Iniciar descarga',
+  'prepare.pickLocal': 'Usar imagen local',
+  'prepare.reveal': 'Abrir carpeta contenedora',
   'prepare.localLink': '¿Ya tienes una imagen? Elige un archivo local',
   'prepare.computed': 'SHA-256 calculado',
 
@@ -146,6 +149,13 @@ export const es: Messages = {
   'done.nextTitle': 'Siguientes pasos',
   'done.nextBody': 'Expulsa la tarjeta de forma segura e insértala en el dispositivo. El primer arranque inicializa el sistema de archivos y puede tardar 1–2 minutos.',
   'done.reveal': 'Mostrar archivo de imagen',
+  'done.cleanupTitle': 'Limpieza de imagen',
+  'done.cleanupBody': 'La imagen descargada ocupa {size} de caché. ¿Desea conservarla o eliminarla?',
+  'done.cleanupHint': 'Se elimina por defecto; al volver a flashear se descargará de nuevo.',
+  'done.cleanupDelete': 'Eliminar imagen',
+  'done.cleanupKeep': 'Conservar imagen',
+  'done.cleanupRemoved': 'Archivos de imagen eliminados de la caché',
+  'done.cleanupKept': 'Imagen conservada en la caché',
   'done.again': 'Grabar otra tarjeta',
 
   'side.title': 'Resumen de grabación',

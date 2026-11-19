@@ -145,6 +145,15 @@ export function IconFolder({ size = 20, className }: IconProps): JSX.Element {
   )
 }
 
+export function IconTrash({ size = 20, className }: IconProps): JSX.Element {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M4.2 6.6h15.6M9.4 4.2h5.2M6.6 6.6l.9 12.1a1.6 1.6 0 001.6 1.5h5.8a1.6 1.6 0 001.6-1.5l.9-12.1" />
+      <path d="M10.2 10.2v6.4M13.8 10.2v6.4" />
+    </Svg>
+  )
+}
+
 export function IconCloud({ size = 20, className }: IconProps): JSX.Element {
   return (
     <Svg size={size} className={className}>

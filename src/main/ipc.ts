@@ -11,7 +11,7 @@ import type {
 } from '../shared/types'
 import { listDrives } from './drives'
 import { cancelFlash, startFlash } from './flasher'
-import { cancelPrepare, pickLocalImage, prepareImage, prepareLocalImage } from './imageService'
+import { cancelPrepare, cleanupImage, pickLocalImage, prepareImage, prepareLocalImage } from './imageService'
 import { loadManifest } from './manifest'
 import { mt } from './messages'
 import { findResolvedModel, resolveModels } from './release'
@@ -61,6 +61,11 @@ export function registerIpc(): void {
 
   ipcMain.handle('image:cancel', async (_event, jobId: string) => {
     if (typeof jobId === 'string') cancelPrepare(jobId)
+  })
+
+  ipcMain.handle('image:cleanup', async (_event, filePath: string) => {
+    if (typeof filePath !== 'string') return false
+    return cleanupImage(filePath)
   })
 
   ipcMain.handle('flash:start', async (_event, options: StartFlashOptions) => {
