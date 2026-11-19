@@ -1,6 +1,8 @@
 import type { JSX } from 'react'
+import type { MessageKey } from '../../../shared/i18n'
 import type { ModelInfo } from '../../../shared/types'
 import { formatBytes } from '../format'
+import { useI18n } from '../i18n'
 import { IconArrowRight, IconCheck, IconChip, IconHandheld } from './Icons'
 
 interface ModelStepProps {
@@ -10,23 +12,30 @@ interface ModelStepProps {
   onContinue: () => void
 }
 
+function taglineKey(id: string): MessageKey {
+  return id === 'rg-ds-plus' ? 'tagline.rg-ds-plus' : 'tagline.rg-ds'
+}
+
 export function ModelStep({ models, selectedId, onSelect, onContinue }: ModelStepProps): JSX.Element {
+  const { t } = useI18n()
+
   return (
     <div className="stage-enter">
       <header className="stage-head">
         <div>
           <p className="eyebrow">STEP 01</p>
-          <h2>你的设备是哪一台？</h2>
-          <p className="stage-sub">选择机型后，我们会自动匹配对应的 gameOS 镜像与校验值。</p>
+          <h2>{t('model.title')}</h2>
+          <p className="stage-sub">{t('model.sub')}</p>
         </div>
         <span className="head-chip">
-          <IconChip size={14} /> {models.length} 款机型
+          <IconChip size={14} /> {t('model.count', { n: models.length })}
         </span>
       </header>
 
       <div className="model-grid">
         {models.map((model, index) => {
           const selected = model.id === selectedId
+          const image = model.image
           return (
             <button
               type="button"
@@ -47,13 +56,19 @@ export function ModelStep({ models, selectedId, onSelect, onContinue }: ModelSte
                 )}
               </div>
               <h3>{model.name}</h3>
-              <p className="model-tagline">{model.tagline}</p>
+              <p className="model-tagline">{t(taglineKey(model.id))}</p>
               <div className="model-meta">
-                <span className="pill">{model.chip ?? '通用'}</span>
-                <span className="dot-sep" />
-                <span>{formatBytes(model.image.size)}</span>
-                <span className="dot-sep" />
-                <span>v{model.image.version}</span>
+                {image ? (
+                  <>
+                    <span className="pill">{model.chip ?? 'gameOS'}</span>
+                    <span className="dot-sep" />
+                    <span>{formatBytes(image.size)}</span>
+                    <span className="dot-sep" />
+                    <span>v{image.version}</span>
+                  </>
+                ) : (
+                  <span className="pill is-pending">{t('model.noImage')}</span>
+                )}
               </div>
             </button>
           )
@@ -62,13 +77,13 @@ export function ModelStep({ models, selectedId, onSelect, onContinue }: ModelSte
 
       <div className="stage-note">
         <span className="note-dot" />
-        不确定具体型号？可以查看设备背面丝印，或开机后在系统信息中确认芯片型号。
+        {t('model.note')}
       </div>
 
       <footer className="stage-actions">
-        <span className="action-hint">{selectedId ? '已选择机型，可以继续' : '请选择一台设备'}</span>
+        <span className="action-hint">{selectedId ? t('model.selectedHint') : t('model.pickHint')}</span>
         <button type="button" className="btn btn-primary" onClick={onContinue} disabled={!selectedId}>
-          继续
+          {t('common.continue')}
           <IconArrowRight size={16} />
         </button>
       </footer>

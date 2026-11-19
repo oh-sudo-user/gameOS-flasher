@@ -1,7 +1,9 @@
 import type { JSX } from 'react'
-import type { ModelInfo, SourceId } from '../../../shared/types'
+import type { MessageKey } from '../../../shared/i18n'
+import type { ModelInfo, PrepareSourceId, ReleaseStatus, SourceId } from '../../../shared/types'
 import type { PrepareUiState } from '../types'
 import { formatBytes, formatPercent, formatSpeed, shortHash } from '../format'
+import { useI18n } from '../i18n'
 import {
   IconAlert,
   IconArrowLeft,
@@ -18,7 +20,9 @@ import {
 interface PrepareStepProps {
   model: ModelInfo
   prepare: PrepareUiState
+  release: ReleaseStatus
   onChooseSource: (source: SourceId) => void
+  onRefreshModels: () => void
   onRetry: () => void
   onCancel: () => void
   onLocal: () => void
@@ -26,40 +30,86 @@ interface PrepareStepProps {
   onContinue: () => void
 }
 
-const sourceMeta = {
-  official: { title: '官方 CDN', desc: '全球加速 · 推荐', icon: IconCloud },
-  mirror: { title: 'GitHub 镜像', desc: '备用线路 · 稳定', icon: IconGithub }
-} as const
+function sourceKey(id: PrepareSourceId): MessageKey {
+  return id === 'local' ? 'source.local' : id === 'mirror' ? 'source.mirror' : 'source.official'
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
 
 export function PrepareStep({
   model,
   prepare,
+  release,
   onChooseSource,
+  onRefreshModels,
   onRetry,
   onCancel,
   onLocal,
   onBack,
   onContinue
 }: PrepareStepProps): JSX.Element {
+  const { t } = useI18n()
+  const image = model.image
+
+  if (!image) {
+    return (
+      <div className="stage-enter">
+        <header className="stage-head">
+          <div>
+            <p className="eyebrow">STEP 03</p>
+            <h2>{t('prepare.title')}</h2>
+            <p className="stage-sub">{t('prepare.sub', { version: release.tag ?? '—', model: model.name })}</p>
+          </div>
+          <span className="head-chip">
+            <IconShield size={14} /> SHA-256
+          </span>
+        </header>
+
+        <div className="empty-state">
+          <span className="empty-icon">
+            <IconCloud size={34} />
+          </span>
+          <h3>{t('prepare.noImageTitle')}</h3>
+          <p>{release.error || t('prepare.noImageBody', { model: model.name })}</p>
+          <button type="button" className="btn btn-ghost" onClick={onRefreshModels}>
+            <IconRefresh size={15} />
+            {t('prepare.noImageRefresh')}
+          </button>
+        </div>
+
+        <footer className="stage-actions">
+          <button type="button" className="btn btn-ghost" onClick={onBack}>
+            <IconArrowLeft size={16} />
+            {t('common.back')}
+          </button>
+        </footer>
+      </div>
+    )
+  }
+
   const running = prepare.status === 'running'
   const ready = prepare.status === 'ready'
   const failed = prepare.status === 'error'
   const phaseText =
     prepare.phase === 'verifying'
-      ? '正在校验 SHA-256'
+      ? t('prepare.phase.verify')
       : prepare.phase === 'downloading'
-        ? '正在下载镜像'
-        : '正在准备镜像'
+        ? t('prepare.phase.download')
+        : t('prepare.phase.prepare')
 
   return (
     <div className="stage-enter">
       <header className="stage-head">
         <div>
           <p className="eyebrow">STEP 03</p>
-          <h2>下载并校验镜像</h2>
-          <p className="stage-sub">
-            gameOS {model.image.version} · {model.name} · 写入前会再次验证完整性。
-          </p>
+          <h2>{t('prepare.title')}</h2>
+          <p className="stage-sub">{t('prepare.sub', { version: image.version, model: model.name })}</p>
         </div>
         <span className="head-chip">
           <IconShield size={14} /> SHA-256
@@ -67,28 +117,26 @@ export function PrepareStep({
       </header>
 
       <div className="source-grid">
-        {(Object.keys(sourceMeta) as SourceId[]).map((id) => {
-          const meta = sourceMeta[id]
-          const source = model.image.sources.find((item) => item.id === id)
-          const active = prepare.sourceId === id
-          const Icon = meta.icon
+        {image.sources.map((source) => {
+          const active = prepare.sourceId === source.id
+          const Icon = source.id === 'mirror' ? IconGithub : IconCloud
           return (
             <button
               type="button"
-              key={id}
+              key={source.id}
               className={`source-card ${active ? 'is-selected' : ''}`}
-              onClick={() => onChooseSource(id)}
-              disabled={running || !source}
+              onClick={() => onChooseSource(source.id)}
+              disabled={running}
               aria-pressed={active}
             >
               <span className="source-icon">
                 <Icon size={19} />
               </span>
               <span className="source-copy">
-                <strong>{meta.title}</strong>
-                <span>{meta.desc}</span>
+                <strong>{t(sourceKey(source.id))}</strong>
+                <span>{hostOf(source.url)}</span>
               </span>
-              {id === 'official' && <span className="source-tag">推荐</span>}
+              {source.id === 'official' && <span className="source-tag">{t('prepare.recommended')}</span>}
               <span className="radio-mark" />
             </button>
           )
@@ -98,7 +146,7 @@ export function PrepareStep({
       {prepare.sourceId === 'local' && (
         <div className="local-note">
           <IconFolder size={15} />
-          正在使用本地镜像
+          {t('prepare.localInUse')}
           {prepare.fileName ? `：${prepare.fileName}` : ''}
         </div>
       )}
@@ -123,7 +171,7 @@ export function PrepareStep({
             <span className="progress-message">{prepare.message}</span>
           </div>
           <button type="button" className="btn btn-ghost btn-sm progress-cancel" onClick={onCancel}>
-            取消
+            {t('common.cancel')}
           </button>
         </div>
       )}
@@ -136,41 +184,35 @@ export function PrepareStep({
             </span>
             <div>
               <h3>
-                {prepare.fromCache ? '已复用本地缓存' : '镜像下载完成'}
-                {prepare.hashMatched === null ? '（未配置官方校验值）' : '，SHA-256 校验通过'}
+                {prepare.fromCache ? t('prepare.readyCacheTitle') : t('prepare.readyTitle')}
+                <span className={`badge ${prepare.hashMatched === null ? 'badge-amber' : 'badge-mint'}`}>
+                  {prepare.hashMatched === null ? t('prepare.hashMissing') : t('prepare.hashPassed')}
+                </span>
               </h3>
-              <p>
-                {prepare.fromCache ? '缓存文件与清单一致，无需重新下载。' : '文件已保存到本地缓存，随时可以开始写入。'}
-              </p>
+              <p>{prepare.fromCache ? t('prepare.readyCacheBody') : t('prepare.readyBody')}</p>
             </div>
           </div>
 
           <div className="detail-grid">
             <div className="detail-item">
-              <span className="detail-label">镜像文件</span>
-              <span className="detail-value">{prepare.fileName || model.image.fileName}</span>
+              <span className="detail-label">{t('prepare.fileName')}</span>
+              <span className="detail-value">{prepare.fileName || image.fileName}</span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">文件大小</span>
-              <span className="detail-value">{formatBytes(prepare.total || model.image.size)}</span>
+              <span className="detail-label">{t('prepare.fileSize')}</span>
+              <span className="detail-value">{formatBytes(prepare.total || image.size)}</span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">来源</span>
-              <span className="detail-value">
-                {prepare.sourceId === 'local'
-                  ? '本地文件'
-                  : prepare.sourceId === 'mirror'
-                    ? 'GitHub 镜像'
-                    : '官方 CDN'}
-              </span>
+              <span className="detail-label">{t('prepare.source')}</span>
+              <span className="detail-value">{t(sourceKey(prepare.sourceId))}</span>
             </div>
             <div className="detail-item">
-              <span className="detail-label">完整性</span>
+              <span className="detail-label">{t('prepare.integrity')}</span>
               <span className="detail-value">
                 {prepare.hashMatched === null ? (
-                  <span className="text-amber">清单未配置校验值</span>
+                  <span className="text-amber">{t('prepare.noExpected')}</span>
                 ) : (
-                  <span className="text-mint">SHA-256 一致</span>
+                  <span className="text-mint">{t('prepare.hashConsistent')}</span>
                 )}
               </span>
             </div>
@@ -178,11 +220,11 @@ export function PrepareStep({
 
           <div className="hash-grid">
             <div className="hash-box">
-              <span className="hash-label">官方 SHA-256</span>
-              <code>{prepare.expectedSha256 || '— 未配置 —'}</code>
+              <span className="hash-label">{t('prepare.expectedHash')}</span>
+              <code>{prepare.expectedSha256 || t('prepare.notConfigured')}</code>
             </div>
             <div className="hash-box">
-              <span className="hash-label">实际 SHA-256</span>
+              <span className="hash-label">{t('prepare.actualHash')}</span>
               <code>{prepare.sha256 || '—'}</code>
             </div>
           </div>
@@ -190,11 +232,11 @@ export function PrepareStep({
           <div className="result-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onRetry}>
               <IconRefresh size={15} />
-              重新下载
+              {t('prepare.redownload')}
             </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={onLocal}>
               <IconFolder size={15} />
-              改用本地镜像
+              {t('prepare.useLocal')}
             </button>
           </div>
         </div>
@@ -207,18 +249,20 @@ export function PrepareStep({
               <IconAlert size={20} />
             </span>
             <div>
-              <h3>镜像准备失败</h3>
-              <p className="error-text">{prepare.error || prepare.message || '下载或校验过程中出现错误'}</p>
+              <h3>{t('prepare.failedTitle')}</h3>
+              <p className="error-text">
+                {prepare.error || prepare.message || t('prepare.failedBody')}
+              </p>
             </div>
           </div>
           <div className="result-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onRetry}>
               <IconRefresh size={15} />
-              重试下载
+              {t('prepare.retryDownload')}
             </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={onLocal}>
               <IconFolder size={15} />
-              使用本地镜像
+              {t('prepare.useLocal')}
             </button>
           </div>
         </div>
@@ -230,23 +274,23 @@ export function PrepareStep({
             <IconDownload size={24} />
           </span>
           <div>
-            <h3>准备下载 {model.image.fileName}</h3>
-            <p>预计下载 {formatBytes(model.image.size)}，完成后会自动校验 SHA-256。</p>
+            <h3>{t('prepare.waitingTitle', { file: image.fileName })}</h3>
+            <p>{t('prepare.waitingBody', { size: formatBytes(image.size) })}</p>
           </div>
           <button type="button" className="btn btn-primary btn-sm" onClick={onRetry}>
-            开始
+            {t('prepare.start')}
           </button>
         </div>
       )}
 
       <button type="button" className="link-btn" onClick={onLocal} disabled={running}>
         <IconFolder size={15} />
-        已有镜像文件？选择本地镜像
+        {t('prepare.localLink')}
       </button>
 
       {prepare.sha256 && !ready && (
         <div className="hash-inline">
-          <span>已计算 SHA-256</span>
+          <span>{t('prepare.computed')}</span>
           <code title={prepare.sha256}>{shortHash(prepare.sha256)}</code>
         </div>
       )}
@@ -254,10 +298,10 @@ export function PrepareStep({
       <footer className="stage-actions">
         <button type="button" className="btn btn-ghost" onClick={onBack} disabled={running}>
           <IconArrowLeft size={16} />
-          上一步
+          {t('common.back')}
         </button>
         <button type="button" className="btn btn-primary" onClick={onContinue} disabled={!ready}>
-          下一步
+          {t('common.next')}
           <IconArrowRight size={16} />
         </button>
       </footer>

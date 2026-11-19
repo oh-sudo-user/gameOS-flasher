@@ -35,7 +35,7 @@ function finalize(raw: RawDrive, platformBlockReason?: (drive: Omit<DriveInfo, '
   const mountpoints = normalizeMountpoints(raw.mountpoints)
   const base: Omit<DriveInfo, 'blocked' | 'blockReason'> = {
     device: asText(raw.device),
-    name: asText(raw.name, '未知存储设备'),
+    name: asText(raw.name, ''),
     size: Number(raw.size) || 0,
     mountpoints,
     isSystem: asBool(raw.isSystem),
@@ -43,16 +43,16 @@ function finalize(raw: RawDrive, platformBlockReason?: (drive: Omit<DriveInfo, '
     isReadOnly: asBool(raw.isReadOnly),
     isUSB: asBool(raw.isUSB),
     isInternal: asBool(raw.isInternal),
-    busType: asText(raw.busType, '未知')
+    busType: asText(raw.busType, '')
   }
 
   let blockReason: string | undefined
   if (!base.device) {
-    blockReason = '未能识别设备路径'
+    blockReason = 'drive.blocked.unknown'
   } else if (base.isSystem) {
-    blockReason = '系统盘，已自动禁止写入'
+    blockReason = 'drive.blocked.system'
   } else if (base.isReadOnly) {
-    blockReason = '设备当前为只读状态'
+    blockReason = 'drive.blocked.readonly'
   } else {
     blockReason = platformBlockReason?.(base)
   }
@@ -154,13 +154,13 @@ async function listMacDrives(): Promise<DriveInfo[]> {
     if ((info.get('Whole') ?? 'Yes') === 'No') continue
 
     const device = info.get('Device Node') ?? `/dev/${id}`
-    const diskName = info.get('Device / Media Name') ?? info.get('Media Name') ?? `磁盘 ${id}`
+    const diskName = info.get('Device / Media Name') ?? info.get('Media Name') ?? `Disk ${id}`
     const sizeMatch = (info.get('Disk Size') ?? '').match(/\((\d+)\s+Bytes\)/)
     const mountPoint = info.get('Mount Point') ?? ''
     const mountpoints = mountPoint && !mountPoint.startsWith('Not applicable') ? [mountPoint] : []
     const isInternal = (info.get('Internal') ?? 'No') === 'Yes'
     const isRemovable = (info.get('Removable Media') ?? 'Fixed') === 'Removable' || (info.get('Ejectable') ?? 'No') === 'Yes'
-    const busType = info.get('Bus Protocol') ?? '未知'
+    const busType = info.get('Bus Protocol') ?? ''
     const isUSB = /USB/i.test(busType)
     const isReadOnly = (info.get('Read-Only Media') ?? 'No') === 'Yes'
     const isSystem = mountpoints.includes('/') || id === rootDisk
@@ -181,7 +181,7 @@ async function listMacDrives(): Promise<DriveInfo[]> {
         },
         (drive) => {
           if (drive.isInternal && !drive.isRemovable && !drive.isUSB) {
-            return '内置磁盘，为保护系统已禁用'
+            return 'drive.blocked.internal'
           }
           return undefined
         }

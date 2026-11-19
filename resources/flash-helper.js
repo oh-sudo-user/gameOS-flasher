@@ -4,6 +4,7 @@
  * 该脚本以管理员权限运行（Windows 下通过 Start-Process -Verb RunAs，
  * macOS 下通过 osascript with administrator privileges），负责把镜像原样写入物理设备。
  * 进度写入 progressPath 指向的 JSON 文件，主进程定时读取以便回传界面。
+ * 错误通过 code 字段回传，由主进程按当前语言本地化。
  *
  * 用法：flash-helper.js <image> <device> <progressFile> <cancelFile>
  */
@@ -55,12 +56,12 @@ function closeAll() {
   }
 }
 
-function fail(message) {
+function fail(code, detail) {
   if (finished) return
   finished = true
-  report('error', { message })
+  report('error', { code, detail: String(detail || '') })
   try {
-    process.stderr.write(`gameOS flasher: ${message}\n`)
+    process.stderr.write(`gameOS flasher [${code}]: ${detail}\n`)
   } catch {}
   closeAll()
   process.exit(1)
@@ -69,13 +70,13 @@ function fail(message) {
 function cancelled() {
   if (finished) return
   finished = true
-  report('cancelled', { message: '用户取消了刷写' })
+  report('cancelled')
   closeAll()
   process.exit(2)
 }
 
 if (!imagePath || !rawDevice || !progressPath || !cancelPath) {
-  process.stderr.write('缺少参数：需要 <image> <device> <progressFile> <cancelFile>\n')
+  process.stderr.write('missing arguments: <image> <device> <progressFile> <cancelFile>\n')
   process.exit(1)
 }
 
@@ -83,21 +84,26 @@ const device = normalizeDevice(rawDevice)
 
 try {
   total = fs.statSync(imagePath).size
-  if (!total) throw new Error('镜像文件为空')
 } catch (error) {
-  fail(`无法读取镜像文件：${error && error.message}`)
+  fail('image-open', error && error.message)
 }
+if (!total) fail('empty', '')
 
-report('preparing', { message: '正在打开目标设备…' })
+report('preparing')
 
 try {
   imageFd = fs.openSync(imagePath, 'r')
-  deviceFd = fs.openSync(device, 'r+')
 } catch (error) {
-  fail(`无法打开目标设备（请确认存储卡已插入，并允许管理员权限）：${error && error.message}`)
+  fail('image-open', error && error.message)
 }
 
-report('writing', { message: '正在写入…' })
+try {
+  deviceFd = fs.openSync(device, 'r+')
+} catch (error) {
+  fail('device-open', error && error.message)
+}
+
+report('writing')
 
 const buffer = Buffer.alloc(CHUNK_SIZE)
 let imageOffset = 0
@@ -108,8 +114,13 @@ try {
     if (fs.existsSync(cancelPath)) cancelled()
 
     const chunk = Math.min(CHUNK_SIZE, total - imageOffset)
-    const read = fs.readSync(imageFd, buffer, 0, chunk, imageOffset)
-    if (read <= 0) throw new Error('读取镜像时遇到意外结束')
+    let read
+    try {
+      read = fs.readSync(imageFd, buffer, 0, chunk, imageOffset)
+    } catch (error) {
+      fail('read', error && error.message)
+    }
+    if (read <= 0) fail('read', 'unexpected end of image')
 
     let toWrite = read
     if (imageOffset + read >= total) {
@@ -125,21 +136,26 @@ try {
     let offset = 0
     while (offset < toWrite) {
       if (fs.existsSync(cancelPath)) cancelled()
-      const n = fs.writeSync(deviceFd, buffer, offset, toWrite - offset)
-      if (n <= 0) throw new Error('写入设备失败（返回 0 字节）')
+      let n
+      try {
+        n = fs.writeSync(deviceFd, buffer, offset, toWrite - offset)
+      } catch (error) {
+        fail('write', error && error.message)
+      }
+      if (n <= 0) fail('write', 'device accepted 0 bytes')
       offset += n
       written += n
       const now = Date.now()
       if (now - lastReport >= REPORT_INTERVAL) {
         lastReport = now
-        report('writing', { message: '正在写入…' })
+        report('writing')
       }
     }
 
     imageOffset += read
   }
 
-  report('finalizing', { message: '正在刷新缓存…' })
+  report('finalizing')
   try {
     fs.fsyncSync(deviceFd)
   } catch {
@@ -148,8 +164,8 @@ try {
   closeAll()
 
   finished = true
-  report('done', { message: '写入完成' })
+  report('done')
   process.exit(0)
 } catch (error) {
-  fail(`写入失败：${error && error.message}`)
+  fail('write', error && error.message)
 }

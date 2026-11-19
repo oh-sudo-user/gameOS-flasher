@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import type { DriveInfo, ModelInfo } from '../../../shared/types'
 import type { FlashUiState, PrepareUiState } from '../types'
 import { formatBytes, formatDuration, shortHash } from '../format'
+import { useI18n } from '../i18n'
 import { IconCheck, IconFolder, IconRefresh, IconSparkles } from './Icons'
 
 interface DoneStepProps {
@@ -14,7 +15,10 @@ interface DoneStepProps {
 }
 
 export function DoneStep({ model, drive, prepare, flash, onRestart, onReveal }: DoneStepProps): JSX.Element {
+  const { t } = useI18n()
   const elapsed = flash.startedAt && flash.finishedAt ? (flash.finishedAt - flash.startedAt) / 1000 : 0
+  const version = prepare.version || model.image?.version || '—'
+  const totalSize = prepare.total || model.image?.size || 0
 
   return (
     <div className="stage-enter done-stage">
@@ -26,28 +30,26 @@ export function DoneStep({ model, drive, prepare, flash, onRestart, onReveal }: 
             <path d="M15 27.2l7.2 7.2L37 19.6" className="check-mark" />
           </svg>
         </span>
-        <h2>刷写完成</h2>
-        <p>
-          已成功将 <strong>gameOS {model.image.version}</strong> 写入 {drive.name}
-        </p>
+        <h2>{t('done.title')}</h2>
+        <p>{t('done.sub', { version, drive: drive.name })}</p>
       </div>
 
       <div className="recap-grid">
         <div className="recap-item">
-          <span>设备型号</span>
+          <span>{t('done.model')}</span>
           <strong>{model.name}</strong>
         </div>
         <div className="recap-item">
-          <span>镜像版本</span>
-          <strong>gameOS {model.image.version}</strong>
+          <span>{t('done.version')}</span>
+          <strong>gameOS {version}</strong>
         </div>
         <div className="recap-item">
-          <span>写入容量</span>
-          <strong>{formatBytes(prepare.total || model.image.size)}</strong>
+          <span>{t('done.size')}</span>
+          <strong>{formatBytes(totalSize)}</strong>
         </div>
         <div className="recap-item">
-          <span>耗时</span>
-          <strong>{formatDuration(elapsed)}</strong>
+          <span>{t('done.duration')}</span>
+          <strong>{formatDuration(elapsed, t)}</strong>
         </div>
       </div>
 
@@ -55,7 +57,7 @@ export function DoneStep({ model, drive, prepare, flash, onRestart, onReveal }: 
         <span>SHA-256</span>
         <code title={prepare.sha256}>{shortHash(prepare.sha256)}</code>
         <span className="badge badge-mint">
-          <IconCheck size={12} /> 已校验
+          <IconCheck size={12} /> {t('done.verified')}
         </span>
       </div>
 
@@ -64,19 +66,19 @@ export function DoneStep({ model, drive, prepare, flash, onRestart, onReveal }: 
           <IconSparkles size={20} />
         </span>
         <div>
-          <h3>接下来</h3>
-          <p>安全拔出存储卡，插入设备后开机。首次启动需要初始化文件系统，通常需要 1–2 分钟，请耐心等待。</p>
+          <h3>{t('done.nextTitle')}</h3>
+          <p>{t('done.nextBody')}</p>
         </div>
       </div>
 
       <footer className="stage-actions stage-actions-end">
         <button type="button" className="btn btn-ghost" onClick={onReveal}>
           <IconFolder size={16} />
-          打开镜像位置
+          {t('done.reveal')}
         </button>
         <button type="button" className="btn btn-primary" onClick={onRestart}>
           <IconRefresh size={16} />
-          再刷一张
+          {t('done.again')}
         </button>
       </footer>
     </div>

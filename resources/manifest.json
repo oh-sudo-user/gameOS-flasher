@@ -1,106 +1,25 @@
 {
-  "version": 1,
+  "version": 3,
   "updatedAt": "2026-11-19",
+  "release": {
+    "owner": "oh-sudo-user",
+    "repo": "gameOS",
+    "mirrorPrefix": ""
+  },
   "models": [
     {
-      "id": "r36s",
-      "name": "R36S",
-      "vendor": "R36S",
-      "tagline": "经典竖版复古掌机",
-      "chip": "RK3326",
-      "image": {
-        "fileName": "gameOS-r36s-1.2.0.img",
-        "version": "1.2.0",
-        "size": 3221225472,
-        "sha256": "",
-        "sources": [
-          {
-            "id": "official",
-            "label": "官方 CDN",
-            "url": "https://dl.gameos.dev/r36s/gameOS-r36s-1.2.0.img"
-          },
-          {
-            "id": "mirror",
-            "label": "GitHub 镜像",
-            "url": "https://github.com/oh-sudo-user/gameOS-flasher/releases/download/images/gameOS-r36s-1.2.0.img"
-          }
-        ]
-      }
-    },
-    {
-      "id": "rg35xx-plus",
-      "name": "RG35XX Plus",
+      "id": "rg-ds",
+      "name": "RG DS",
       "vendor": "Anbernic",
-      "tagline": "小尺寸横版掌机",
-      "chip": "H700",
-      "image": {
-        "fileName": "gameOS-rg35xx-plus-1.2.0.img",
-        "version": "1.2.0",
-        "size": 4563402752,
-        "sha256": "",
-        "sources": [
-          {
-            "id": "official",
-            "label": "官方 CDN",
-            "url": "https://dl.gameos.dev/rg35xx-plus/gameOS-rg35xx-plus-1.2.0.img"
-          },
-          {
-            "id": "mirror",
-            "label": "GitHub 镜像",
-            "url": "https://github.com/oh-sudo-user/gameOS-flasher/releases/download/images/gameOS-rg35xx-plus-1.2.0.img"
-          }
-        ]
-      }
+      "tagline": "Dual-screen retro handheld",
+      "assetMatch": "rg-ds"
     },
     {
-      "id": "miyoo-mini-plus",
-      "name": "Miyoo Mini Plus",
-      "vendor": "Miyoo",
-      "tagline": "口袋里的复古游戏站",
-      "chip": "SSD202D",
-      "image": {
-        "fileName": "gameOS-miyoo-mini-plus-1.2.0.img",
-        "version": "1.2.0",
-        "size": 2952790016,
-        "sha256": "",
-        "sources": [
-          {
-            "id": "official",
-            "label": "官方 CDN",
-            "url": "https://dl.gameos.dev/miyoo-mini-plus/gameOS-miyoo-mini-plus-1.2.0.img"
-          },
-          {
-            "id": "mirror",
-            "label": "GitHub 镜像",
-            "url": "https://github.com/oh-sudo-user/gameOS-flasher/releases/download/images/gameOS-miyoo-mini-plus-1.2.0.img"
-          }
-        ]
-      }
-    },
-    {
-      "id": "trimui-smart-pro",
-      "name": "TrimUI Smart Pro",
-      "vendor": "TrimUI",
-      "tagline": "4.96 英寸大屏掌机",
-      "chip": "A133P",
-      "image": {
-        "fileName": "gameOS-trimui-smart-pro-1.2.0.img",
-        "version": "1.2.0",
-        "size": 5368709120,
-        "sha256": "",
-        "sources": [
-          {
-            "id": "official",
-            "label": "官方 CDN",
-            "url": "https://dl.gameos.dev/trimui-smart-pro/gameOS-trimui-smart-pro-1.2.0.img"
-          },
-          {
-            "id": "mirror",
-            "label": "GitHub 镜像",
-            "url": "https://github.com/oh-sudo-user/gameOS-flasher/releases/download/images/gameOS-trimui-smart-pro-1.2.0.img"
-          }
-        ]
-      }
+      "id": "rg-ds-plus",
+      "name": "RG DS Plus",
+      "vendor": "Anbernic",
+      "tagline": "Larger dual-screen handheld",
+      "assetMatch": "rg-ds-plus"
     }
   ]
 }

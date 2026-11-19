@@ -4,9 +4,11 @@ import { readFile, stat } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type { FlashResult, ProgressEvent, StartFlashOptions } from '../shared/types'
+import type { MessageKey } from '../shared/i18n'
 import { listDrives } from './drives'
 import { hashFileForFlash } from './imageService'
 import { resourcePath } from './manifest'
+import { mt } from './messages'
 
 type Emit = (event: ProgressEvent) => void
 
@@ -14,6 +16,8 @@ interface HelperProgress {
   phase?: 'queued' | 'preparing' | 'writing' | 'finalizing' | 'done' | 'error' | 'cancelled'
   written?: number
   total?: number
+  code?: 'image-open' | 'device-open' | 'read' | 'write' | 'empty' | string
+  detail?: string
   message?: string
 }
 
@@ -51,6 +55,22 @@ function readLogTail(logPath: string, max = 1200): string {
     return content ? content.slice(-max) : ''
   } catch {
     return ''
+  }
+}
+
+function helperErrorMessage(code: string | undefined, detail: string | undefined): string {
+  const suffix = detail?.trim() ? ` (${detail.trim()})` : ''
+  switch (code) {
+    case 'image-open':
+      return mt('err.helperImageOpen', { detail: detail ?? '' })
+    case 'device-open':
+      return mt('err.helperDeviceOpen', { detail: suffix })
+    case 'read':
+      return mt('err.helperRead', { detail: detail ?? '' })
+    case 'empty':
+      return mt('err.helperEmpty')
+    default:
+      return mt('err.helperWrite', { detail: detail ?? '' })
   }
 }
 
@@ -132,42 +152,43 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
     emit({ jobId: options.jobId, kind: 'flash', ...payload })
   }
 
-  emitFlash({ phase: 'preparing', percent: 0, message: '正在确认目标设备…' })
+  emitFlash({ phase: 'preparing', percent: 0, message: mt('progress.confirmDevice') })
 
   const drives = await listDrives()
   const target = drives.find((drive) => deviceMatches(drive.device, options.device))
   if (!target) {
-    throw new Error('未找到目标存储卡，请重新插拔后刷新设备列表')
+    throw new Error(mt('err.driveMissing'))
   }
   if (target.isSystem || target.blocked) {
-    throw new Error(`已阻止写入：${target.blockReason ?? '该设备被判定为系统盘'}`)
+    const reason = target.blockReason ? mt(target.blockReason as MessageKey) : mt('drive.badge.system')
+    throw new Error(mt('err.driveBlocked', { reason }))
   }
   if (target.isReadOnly) {
-    throw new Error('存储卡处于只读状态，请检查写保护开关')
+    throw new Error(mt('err.readOnly'))
   }
   if (target.size > 0 && options.imageSize > 0 && target.size < options.imageSize) {
-    throw new Error('存储卡容量小于镜像体积，请更换更大容量的存储卡')
+    throw new Error(mt('err.tooSmall'))
   }
 
   const imageStat = await stat(options.imagePath).catch(() => null)
   if (!imageStat || !imageStat.isFile()) {
-    throw new Error('镜像文件不存在或已被移动，请重新准备镜像')
+    throw new Error(mt('err.imageMissing'))
   }
 
-  emitFlash({ phase: 'preparing', percent: 0, message: '正在二次校验镜像 SHA-256…' })
+  emitFlash({ phase: 'preparing', percent: 0, message: mt('progress.rehash') })
   const actualSha = await hashFileForFlash(options.imagePath, (processed, total) => {
     emitFlash({
       phase: 'preparing',
       received: processed,
       total,
       percent: total ? Math.min(99, (processed / total) * 100) : 0,
-      message: '正在二次校验镜像 SHA-256…'
+      message: mt('progress.rehash')
     })
   })
 
   const expected = normalizeSha(options.expectedSha256)
   if (expected && actualSha !== expected) {
-    throw new Error('镜像二次校验失败，SHA-256 与清单不一致，已阻止写入')
+    throw new Error(mt('err.secondHash'))
   }
 
   const jobDir = path.join(os.tmpdir(), 'gameos-flasher', options.jobId)
@@ -183,7 +204,7 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
   emitFlash({
     phase: 'preparing',
     percent: 100,
-    message: process.platform === 'darwin' ? '等待管理员授权…' : '等待管理员授权（UAC）…'
+    message: mt('progress.waitElevation')
   })
 
   const launcher = process.platform === 'darwin'
@@ -226,7 +247,7 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
       if (finished || reading) return
 
       if (session.cancelled && !sawHelperProgress) {
-        emitFlash({ phase: 'cancelled', message: '已取消' })
+        emitFlash({ phase: 'cancelled', message: mt('progress.cancelled') })
         // 保留取消标记一段时间，避免提权窗口在取消后才被确认
         finish(undefined, { jobId: options.jobId, cancelled: true }, 30 * 60 * 1000)
         return
@@ -246,12 +267,13 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
           }
 
           if (progress.phase === 'error') {
-            emitFlash({ phase: 'error', message: progress.message ?? '写入失败' })
-            finish(new Error(progress.message ?? '写入失败'))
+            const message = helperErrorMessage(progress.code, progress.detail)
+            emitFlash({ phase: 'error', message })
+            finish(new Error(message))
             return
           }
           if (progress.phase === 'cancelled') {
-            emitFlash({ phase: 'cancelled', message: progress.message ?? '已取消' })
+            emitFlash({ phase: 'cancelled', message: mt('progress.cancelled') })
             finish(undefined, { jobId: options.jobId, cancelled: true })
             return
           }
@@ -262,7 +284,7 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
               total,
               percent: 100,
               speed,
-              message: '写入完成'
+              message: mt('progress.done')
             })
             finish(undefined, { jobId: options.jobId, cancelled: false })
             return
@@ -285,7 +307,7 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
               total,
               percent,
               speed,
-              message: progress.message ?? (progress.phase === 'finalizing' ? '正在刷新缓存…' : '正在写入…')
+              message: progress.phase === 'finalizing' ? mt('progress.flushing') : mt('progress.writing')
             })
           }
         } catch {
@@ -297,18 +319,18 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
         if (finished) return
         const now = Date.now()
         if (session.cancelled && sawHelperProgress && now - lastActivity > 15_000) {
-          emitFlash({ phase: 'cancelled', message: '已取消' })
+          emitFlash({ phase: 'cancelled', message: mt('progress.cancelled') })
           finish(undefined, { jobId: options.jobId, cancelled: true }, 5 * 60 * 1000)
         } else if (!sawHelperProgress && now - lastActivity > 5 * 60 * 1000) {
-          finish(new Error('等待管理员授权超时，请重新尝试'))
+          finish(new Error(mt('err.elevationTimeout')))
         } else if (sawHelperProgress && now - lastActivity > 3 * 60 * 1000) {
-          finish(new Error('写入进程长时间无响应，请检查存储卡连接'))
+          finish(new Error(mt('err.stall')))
         }
       })()
     }, 200)
 
     launcher.on('error', (error) => {
-      finish(new Error(`无法启动管理员写入进程：${error.message}`))
+      finish(new Error(mt('err.launchFailed', { message: error.message })))
     })
 
     launcher.on('exit', (code) => {
@@ -317,7 +339,7 @@ export async function startFlash(options: StartFlashOptions, emit: Emit): Promis
         if (!sawHelperProgress) {
           if (code !== 0 || process.platform === 'darwin') {
             const detail = launcherError.trim()
-            finish(new Error(detail ? `未获得管理员权限：${detail}` : '未获得管理员权限，无法写入设备'))
+            finish(new Error(detail ? `${mt('err.elevationDenied')} (${detail})` : mt('err.elevationDenied')))
           }
         }
       }, 900)

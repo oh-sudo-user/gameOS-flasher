@@ -1,3 +1,7 @@
+import type { MessageKey } from '../../shared/i18n'
+
+type TranslateFn = (key: MessageKey, params?: Record<string, string | number>) => string
+
 export function formatBytes(bytes: number, digits = 1): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -15,18 +19,29 @@ export function formatSpeed(bytesPerSecond: number): string {
   return `${formatBytes(bytesPerSecond)}/s`
 }
 
-export function formatDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '0 秒'
+export function formatDuration(seconds: number, t: TranslateFn): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return t('duration.seconds', { s: 0 })
   const total = Math.round(seconds)
   const minutes = Math.floor(total / 60)
   const rest = total % 60
-  if (minutes <= 0) return `${rest} 秒`
-  return `${minutes} 分 ${rest.toString().padStart(2, '0')} 秒`
+  if (minutes <= 0) return t('duration.seconds', { s: rest })
+  return t('duration.minutes', { m: minutes, s: rest.toString().padStart(2, '0') })
 }
 
 export function formatPercent(percent: number): string {
   if (!Number.isFinite(percent)) return '0%'
   return `${Math.min(100, Math.max(0, percent)).toFixed(percent >= 10 ? 0 : 1)}%`
+}
+
+export function formatDate(iso: string | null | undefined, locale: string): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  try {
+    return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(date)
+  } catch {
+    return iso
+  }
 }
 
 export function shortHash(hash: string): string {

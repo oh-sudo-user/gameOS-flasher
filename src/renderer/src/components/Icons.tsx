@@ -163,6 +163,16 @@ export function IconGithub({ size = 20, className }: IconProps): JSX.Element {
   )
 }
 
+export function IconGlobe({ size = 20, className }: IconProps): JSX.Element {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M3.4 12h17.2" />
+      <path d="M12 3.4c2.3 2.3 3.5 5.3 3.5 8.6s-1.2 6.3-3.5 8.6c-2.3-2.3-3.5-5.3-3.5-8.6s1.2-6.3 3.5-8.6z" />
+    </Svg>
+  )
+}
+
 export function IconWindows({ size = 20, className }: IconProps): JSX.Element {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">

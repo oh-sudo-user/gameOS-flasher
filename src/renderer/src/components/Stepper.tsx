@@ -1,16 +1,20 @@
 import type { JSX } from 'react'
+import type { MessageKey } from '../../../shared/i18n'
+import { useI18n } from '../i18n'
 import { IconCheck } from './Icons'
 
-const STEPS = ['选择机型', '选择存储卡', '校验镜像', '写入存储卡']
+const STEPS: MessageKey[] = ['step.model', 'step.drive', 'step.prepare', 'step.flash']
 
 interface StepperProps {
   current: number
   onSelect: (index: number) => void
 }
 
-export function Stepper({ current, onSelect }: StepperProps): React.JSX.Element {
+export function Stepper({ current, onSelect }: StepperProps): JSX.Element {
+  const { t } = useI18n()
+
   return (
-    <nav className="stepper" aria-label="刷写步骤">
+    <nav className="stepper" aria-label={t('step.nav')}>
       {STEPS.map((label, index) => {
         const completed = current > index
         const active = current === index
@@ -26,7 +30,7 @@ export function Stepper({ current, onSelect }: StepperProps): React.JSX.Element 
               aria-current={active ? 'step' : undefined}
             >
               <span className="stepper-dot">{completed ? <IconCheck size={13} /> : index + 1}</span>
-              <span className="stepper-label">{label}</span>
+              <span className="stepper-label">{t(label)}</span>
             </button>
             {index < STEPS.length - 1 && <span className={`stepper-line ${current > index ? 'is-filled' : ''}`} />}
           </div>

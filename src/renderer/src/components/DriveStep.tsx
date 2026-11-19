@@ -1,6 +1,8 @@
 import type { JSX } from 'react'
+import type { MessageKey } from '../../../shared/i18n'
 import type { DriveInfo } from '../../../shared/types'
 import { formatBytes } from '../format'
+import { useI18n } from '../i18n'
 import {
   IconAlert,
   IconArrowRight,
@@ -37,6 +39,7 @@ export function DriveStep({
   onRefresh,
   onContinue
 }: DriveStepProps): JSX.Element {
+  const { t } = useI18n()
   const selectable = drives.filter((drive) => !drive.blocked)
   const hasDrive = selectable.length > 0
 
@@ -45,12 +48,12 @@ export function DriveStep({
       <header className="stage-head">
         <div>
           <p className="eyebrow">STEP 02</p>
-          <h2>插入存储卡并选择目标</h2>
-          <p className="stage-sub">建议使用 8GB 以上的 A1/A2 高速卡。系统盘会被自动识别并禁止选中。</p>
+          <h2>{t('drive.title')}</h2>
+          <p className="stage-sub">{t('drive.sub')}</p>
         </div>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh} disabled={loading}>
           <IconRefresh size={15} className={loading ? 'spin' : ''} />
-          刷新
+          {t('common.refresh')}
         </button>
       </header>
 
@@ -58,7 +61,7 @@ export function DriveStep({
         <div className="alert alert-danger">
           <IconAlert size={18} />
           <div>
-            <strong>读取设备列表失败</strong>
+            <strong>{t('drive.errorTitle')}</strong>
             <p>{error}</p>
           </div>
         </div>
@@ -83,11 +86,11 @@ export function DriveStep({
           <span className="empty-icon">
             <IconSdCard size={34} />
           </span>
-          <h3>没有检测到存储卡</h3>
-          <p>请确认存储卡已插入读卡器，然后点击右上角的「刷新」重试。</p>
+          <h3>{t('drive.emptyTitle')}</h3>
+          <p>{t('drive.emptyBody')}</p>
           <button type="button" className="btn btn-ghost" onClick={onRefresh}>
             <IconRefresh size={15} />
-            重新检测
+            {t('drive.redetect')}
           </button>
         </div>
       )}
@@ -113,16 +116,25 @@ export function DriveStep({
                 <span className="drive-main">
                   <span className="drive-title">
                     {drive.name}
-                    {drive.isSystem && <span className="badge badge-danger">系统盘</span>}
-                    {!drive.isSystem && drive.isRemovable && <span className="badge badge-mint">可移动</span>}
-                    {!drive.isSystem && !drive.isRemovable && drive.isUSB && <span className="badge badge-blue">USB</span>}
-                    {!drive.isSystem && !drive.isRemovable && !drive.isUSB && <span className="badge badge-amber">内置</span>}
-                    {drive.isReadOnly && <span className="badge badge-amber">只读</span>}
+                    {drive.isSystem && <span className="badge badge-danger">{t('drive.badge.system')}</span>}
+                    {!drive.isSystem && drive.isRemovable && (
+                      <span className="badge badge-mint">{t('drive.badge.removable')}</span>
+                    )}
+                    {!drive.isSystem && !drive.isRemovable && drive.isUSB && (
+                      <span className="badge badge-blue">USB</span>
+                    )}
+                    {!drive.isSystem && !drive.isRemovable && !drive.isUSB && (
+                      <span className="badge badge-amber">{t('drive.badge.internal')}</span>
+                    )}
+                    {drive.isReadOnly && <span className="badge badge-amber">{t('drive.badge.readonly')}</span>}
                   </span>
                   <span className="drive-sub">
-                    {drive.mountpoints.length > 0 ? drive.mountpoints.join(' · ') : '未挂载'} · {drive.busType}
+                    {drive.mountpoints.length > 0 ? drive.mountpoints.join(' · ') : t('common.unmounted')}
+                    {drive.busType ? ` · ${drive.busType}` : ''}
                   </span>
-                  {drive.blocked && drive.blockReason && <span className="drive-block">{drive.blockReason}</span>}
+                  {drive.blocked && drive.blockReason && (
+                    <span className="drive-block">{t(drive.blockReason as MessageKey)}</span>
+                  )}
                 </span>
                 <span className="drive-size">{formatBytes(drive.size)}</span>
                 <span className="drive-check">{selected ? <IconCheck size={14} /> : null}</span>
@@ -134,19 +146,15 @@ export function DriveStep({
 
       <div className="stage-note">
         <IconShield size={15} />
-        已自动跳过系统盘与只读设备；如果目标卡没有出现，请重新插拔后再刷新。
+        {t('drive.note')}
       </div>
 
       <footer className="stage-actions">
         <span className="action-hint">
-          {selectedDevice
-            ? '写入前请再次确认卡内数据已备份'
-            : hasDrive
-              ? '请选择目标存储卡'
-              : '等待检测存储卡'}
+          {selectedDevice ? t('drive.hintSelected') : hasDrive ? t('drive.hintPick') : t('drive.hintWaiting')}
         </span>
         <button type="button" className="btn btn-primary" onClick={onContinue} disabled={!selectedDevice}>
-          继续
+          {t('common.continue')}
           <IconArrowRight size={16} />
         </button>
       </footer>

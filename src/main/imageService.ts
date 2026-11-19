@@ -6,6 +6,7 @@ import { once } from 'node:events'
 import path from 'node:path'
 import type {
   ImageInfo,
+  ImageSource,
   ModelInfo,
   PrepareImageOptions,
   PrepareLocalOptions,
@@ -13,12 +14,13 @@ import type {
   ProgressEvent,
   SourceId
 } from '../shared/types'
+import { mt } from './messages'
 
 type Emit = (event: ProgressEvent) => void
 
 class PrepareAbortError extends Error {
   constructor() {
-    super('已取消')
+    super(mt('err.cancelled'))
     this.name = 'PrepareAbortError'
   }
 }
@@ -33,12 +35,12 @@ export function cancelPrepare(jobId: string): void {
 
 export async function pickLocalImage(): Promise<string | undefined> {
   const result = await dialog.showOpenDialog({
-    title: '选择本地 gameOS 镜像',
-    buttonLabel: '选择镜像',
+    title: mt('dialog.pickImageTitle'),
+    buttonLabel: mt('dialog.pickImageButton'),
     properties: ['openFile'],
     filters: [
-      { name: '磁盘镜像', extensions: ['img', 'iso', 'raw', 'bin'] },
-      { name: '所有文件', extensions: ['*'] }
+      { name: mt('dialog.filterImage'), extensions: ['img', 'iso', 'raw', 'bin'] },
+      { name: mt('dialog.filterAll'), extensions: ['*'] }
     ]
   })
   if (result.canceled || !result.filePaths[0]) return undefined
@@ -58,18 +60,24 @@ function pagePercent(received: number, total: number): number {
   return Math.min(100, Math.max(0, (received / total) * 100))
 }
 
+function sourceLabel(source: ImageSource): string {
+  return mt(source.id === 'official' ? 'source.official' : 'source.mirror')
+}
+
 async function ensureFreeSpace(targetDir: string, needed: number): Promise<void> {
   if (!needed) return
+  await mkdir(targetDir, { recursive: true })
+
+  let free = 0
   try {
-    await mkdir(targetDir, { recursive: true })
     const stats = await statfs(targetDir)
-    const free = Number(stats.bavail) * Number(stats.bsize)
-    if (free > 0 && free < needed + 256 * 1024 * 1024) {
-      throw new Error(`磁盘空间不足，至少需要 ${((needed + 256 * 1024 * 1024) / 1024 ** 3).toFixed(1)} GB 可用空间`)
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('磁盘空间不足')) throw error
-    // 某些文件系统不支持 statfs，忽略该项检查
+    free = Number(stats.bavail) * Number(stats.bsize)
+  } catch {
+    // 某些文件系统不支持 statfs，跳过空间检查
+    return
+  }
+  if (free > 0 && free < needed + 256 * 1024 * 1024) {
+    throw new Error(mt('err.diskSpace', { size: `${((needed + 256 * 1024 * 1024) / 1024 ** 3).toFixed(1)} GB` }))
   }
 }
 
@@ -105,8 +113,9 @@ async function downloadFromSource(
   signal: AbortSignal
 ): Promise<string> {
   const source = image.sources.find((item) => item.id === sourceId) ?? image.sources[0]
-  if (!source) throw new Error('该机型暂未配置下载源')
+  if (!source) throw new Error(mt('err.sourceMissing'))
 
+  const label = sourceLabel(source)
   emitProgress(emit, jobId, {
     phase: 'downloading',
     sourceId: source.id,
@@ -114,7 +123,7 @@ async function downloadFromSource(
     total: image.size,
     percent: 0,
     speed: 0,
-    message: `正在从${source.label}下载镜像…`
+    message: mt('progress.downloading', { source: label })
   })
 
   const response = await net.fetch(source.url, {
@@ -125,7 +134,7 @@ async function downloadFromSource(
   })
 
   if (!response.ok || !response.body) {
-    throw new Error(`${source.label}返回 HTTP ${response.status}，无法下载镜像`)
+    throw new Error(mt('err.http', { source: label, status: response.status }))
   }
 
   const contentLength = Number(response.headers.get('content-length') ?? 0)
@@ -168,7 +177,7 @@ async function downloadFromSource(
           total,
           percent: pagePercent(received, total),
           speed,
-          message: `正在从${source.label}下载镜像…`
+          message: mt('progress.downloading', { source: label })
         })
       }
     }
@@ -190,10 +199,15 @@ async function downloadFromSource(
     total: total || received,
     percent: 100,
     speed,
-    message: '下载完成'
+    message: mt('progress.downloaded')
   })
 
   return hash.digest('hex')
+}
+
+function requireImage(model: ModelInfo): ImageInfo {
+  if (!model.image) throw new Error(mt('err.noImage'))
+  return model.image
 }
 
 async function prepareWithSources(
@@ -203,7 +217,7 @@ async function prepareWithSources(
   emit: Emit,
   signal: AbortSignal
 ): Promise<PrepareResult> {
-  const image = model.image
+  const image = requireImage(model)
   const dir = cacheDir()
   await mkdir(dir, { recursive: true })
 
@@ -218,7 +232,7 @@ async function prepareWithSources(
       total: image.size,
       received: 0,
       percent: 0,
-      message: '发现本地缓存，正在校验完整性…'
+      message: mt('progress.cacheFound')
     })
     try {
       const cachedHash = await hashFile(finalPath, signal, (processed, total) => {
@@ -228,7 +242,7 @@ async function prepareWithSources(
           received: processed,
           total,
           percent: pagePercent(processed, total),
-          message: '正在校验本地缓存…'
+          message: mt('progress.cacheVerifying')
         })
       })
       if (!expected || cachedHash === expected) {
@@ -243,7 +257,7 @@ async function prepareWithSources(
           total: image.size,
           received: image.size,
           percent: 100,
-          message: '镜像已就绪'
+          message: mt('progress.ready')
         })
         return {
           filePath: finalPath,
@@ -253,7 +267,8 @@ async function prepareWithSources(
           expectedSha256: expected,
           hashMatched: expected ? true : null,
           fromCache: true,
-          sourceId: preferredSource
+          sourceId: preferredSource,
+          version: image.version
         }
       }
       await rm(finalPath, { force: true })
@@ -281,14 +296,14 @@ async function prepareWithSources(
           total: image.size,
           received: 0,
           percent: 0,
-          message: `${source.label}不可用，正在自动切换镜像源…`
+          message: mt('progress.switching', { source: sourceLabel(source) })
         })
       }
 
       const downloadedHash = await downloadFromSource(image, sourceId, partPath, jobId, emit, signal)
 
       if (expected && downloadedHash !== expected) {
-        throw new Error('SHA-256 校验失败，镜像可能在传输中损坏')
+        throw new Error(mt('err.shaMismatch'))
       }
 
       emitProgress(emit, jobId, {
@@ -300,7 +315,7 @@ async function prepareWithSources(
         sha256: downloadedHash,
         expectedSha256: expected,
         hashMatched: expected ? true : null,
-        message: expected ? 'SHA-256 校验通过' : '已计算 SHA-256（清单未配置期望值）'
+        message: expected ? mt('progress.hashVerified') : mt('progress.hashComputed')
       })
 
       await rename(partPath, finalPath)
@@ -318,7 +333,7 @@ async function prepareWithSources(
         total: image.size,
         received: image.size,
         percent: 100,
-        message: '镜像已就绪'
+        message: mt('progress.ready')
       })
 
       return {
@@ -329,19 +344,20 @@ async function prepareWithSources(
         expectedSha256: expected,
         hashMatched: expected ? true : null,
         fromCache: false,
-        sourceId
+        sourceId,
+        version: image.version
       }
     } catch (error) {
       await rm(partPath, { force: true }).catch(() => undefined)
       if (error instanceof PrepareAbortError || signal.aborted) {
-        emitProgress(emit, jobId, { phase: 'cancelled', message: '已取消下载' })
+        emitProgress(emit, jobId, { phase: 'cancelled', message: mt('progress.cancelled') })
         throw new PrepareAbortError()
       }
-      failures.push(`${source.label}：${error instanceof Error ? error.message : String(error)}`)
+      failures.push(`${sourceLabel(source)}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
-  throw new Error(failures.join('；') || '镜像下载失败')
+  throw new Error(failures.join('; ') || mt('err.downloadFailed'))
 }
 
 export async function prepareImage(
@@ -381,7 +397,7 @@ export async function prepareLocalImage(
       received: 0,
       percent: 0,
       filePath,
-      message: '正在计算本地镜像的 SHA-256…'
+      message: mt('progress.cacheVerifying')
     })
 
     let lastEmitAt = 0
@@ -396,11 +412,11 @@ export async function prepareLocalImage(
         total,
         percent: pagePercent(processed, total),
         filePath,
-        message: '正在计算本地镜像的 SHA-256…'
+        message: mt('progress.cacheVerifying')
       })
     })
 
-    const expected = normalizeSha(model.image.sha256)
+    const expected = normalizeSha(model.image?.sha256)
     const hashMatched: boolean | null = expected ? sha256 === expected : null
 
     emitProgress(emit, options.jobId, {
@@ -413,7 +429,7 @@ export async function prepareLocalImage(
       total: info.size,
       received: info.size,
       percent: 100,
-      message: hashMatched === false ? 'SHA-256 与官方清单不一致' : '本地镜像已就绪'
+      message: hashMatched === false ? mt('err.shaMismatch') : mt('progress.ready')
     })
 
     return {
@@ -424,11 +440,12 @@ export async function prepareLocalImage(
       expectedSha256: expected,
       hashMatched,
       fromCache: false,
-      sourceId: 'local'
+      sourceId: 'local',
+      version: model.image?.version ?? ''
     }
   } catch (error) {
     if (error instanceof PrepareAbortError) {
-      emitProgress(emit, options.jobId, { phase: 'cancelled', message: '已取消' })
+      emitProgress(emit, options.jobId, { phase: 'cancelled', message: mt('progress.cancelled') })
       throw error
     }
     const message = error instanceof Error ? error.message : String(error)
