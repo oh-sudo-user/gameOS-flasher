@@ -77,14 +77,38 @@ try {
     off += n
   }
   closeSync(fd)
-  const a = sha(back)
-  const b = sha(image)
-  console.log(`device: ${a}\nimage : ${b}`)
-  if (a !== b) throw new Error('READ-BACK MISMATCH')
+  const live = sha(back)
+  console.log(`rdisk read-back: ${live} (${live === sha(image) ? 'match' : 'differs'})`)
+  if (live !== sha(image)) firstDiff(back, image)
+
+  // detach flushes the disk-image helper's caches; the backing file is the
+  // bytes that actually persisted, which is what a real card would retain
+  run('hdiutil', ['detach', '-force', disk])
+  disk = ''
+  const persisted = sha(readFileSync(img))
+  console.log(`device: ${persisted}\nimage : ${sha(image)}`)
+  if (persisted !== sha(image)) {
+    firstDiff(readFileSync(img), image)
+    throw new Error('READ-BACK MISMATCH')
+  }
   console.log('SMOKE OK')
 } finally {
   if (disk) run('hdiutil', ['detach', '-force', disk], { allowFail: true })
   rmSync(img, { force: true })
   rmSync(progressPath, { force: true })
   rmSync(cancelPath, { force: true })
+}
+
+function firstDiff(a, b) {
+  const n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) {
+    if (a[i] !== b[i]) {
+      const at = Math.max(0, i - 16)
+      console.log(`first diff at ${i} (0x${i.toString(16)})`)
+      console.log(`got : ${a.subarray(at, at + 48).toString('hex')}`)
+      console.log(`want: ${b.subarray(at, at + 48).toString('hex')}`)
+      return
+    }
+  }
+  console.log(`no byte diff in first ${n} bytes; lengths ${a.length} vs ${b.length}`)
 }
