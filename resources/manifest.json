@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "updatedAt": "2026-11-19",
   "release": {
     "owner": "oh-sudo-user",
@@ -12,14 +12,14 @@
       "name": "RG DS",
       "vendor": "Anbernic",
       "tagline": "Dual-screen retro handheld",
-      "assetMatch": "rg-ds"
+      "assetMatch": "rgds"
     },
     {
       "id": "rg-ds-plus",
       "name": "RG DS Plus",
       "vendor": "Anbernic",
       "tagline": "Larger dual-screen handheld",
-      "assetMatch": "rg-ds-plus"
+      "assetMatch": "rgds-plus"
     }
   ]
 }

@@ -39,7 +39,8 @@ const CACHE_TTL = 5 * 60 * 1000
 let cache: ReleaseCache | null = null
 
 function isImageAsset(name: string): boolean {
-  return name.toLowerCase().endsWith('.img')
+  const lower = name.toLowerCase()
+  return lower.endsWith('.img') || lower.endsWith('.img.gz')
 }
 
 function hasToken(haystack: string, token: string): boolean {
@@ -134,17 +135,27 @@ function parseChecksums(text: string): Map<string, string> {
 }
 
 async function loadChecksumAsset(release: GitHubRelease): Promise<Map<string, string>> {
-  const candidate = release.assets.find((asset) => /^(sha256sums?|checksums?|sha256)(\.txt)?$/i.test(asset.name))
-  if (!candidate) return new Map()
-  try {
-    const response = await net.fetch(candidate.browser_download_url, {
-      headers: { 'User-Agent': 'gameOS-Flasher' }
-    })
-    if (!response.ok) return new Map()
-    return parseChecksums(await response.text())
-  } catch {
-    return new Map()
+  // 支持汇总文件（SHA256SUMS / checksums.txt）以及每个资源旁的 .sha256 校验文件
+  const candidates = release.assets.filter(
+    (asset) => /^(sha256sums?|checksums?|sha256)(\.txt)?$/i.test(asset.name) || /\.sha256$/i.test(asset.name)
+  )
+  const merged = new Map<string, string>()
+
+  for (const candidate of candidates) {
+    try {
+      const response = await net.fetch(candidate.browser_download_url, {
+        headers: { 'User-Agent': 'gameOS-Flasher' }
+      })
+      if (!response.ok) continue
+      for (const [name, hash] of parseChecksums(await response.text())) {
+        merged.set(name, hash)
+      }
+    } catch {
+      // 单个校验文件下载失败时忽略，仍可回退到 GitHub 资源 digest
+    }
   }
+
+  return merged
 }
 
 function buildImage(

@@ -1,8 +1,11 @@
 import { app, dialog, net } from 'electron'
 import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync } from 'node:fs'
-import { mkdir, rename, rm, stat, statfs } from 'node:fs/promises'
+import { mkdir, open, rename, rm, stat, statfs } from 'node:fs/promises'
 import { once } from 'node:events'
+import { Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+import { createGunzip } from 'node:zlib'
 import path from 'node:path'
 import type {
   ImageInfo,
@@ -11,6 +14,7 @@ import type {
   PrepareImageOptions,
   PrepareLocalOptions,
   PrepareResult,
+  PrepareSourceId,
   ProgressEvent,
   SourceId
 } from '../shared/types'
@@ -39,7 +43,7 @@ export async function pickLocalImage(): Promise<string | undefined> {
     buttonLabel: mt('dialog.pickImageButton'),
     properties: ['openFile'],
     filters: [
-      { name: mt('dialog.filterImage'), extensions: ['img', 'iso', 'raw', 'bin'] },
+      { name: mt('dialog.filterImage'), extensions: ['img', 'iso', 'raw', 'bin', 'gz'] },
       { name: mt('dialog.filterAll'), extensions: ['*'] }
     ]
   })
@@ -58,6 +62,106 @@ function emitProgress(emit: Emit, jobId: string, payload: Omit<ProgressEvent, 'j
 function pagePercent(received: number, total: number): number {
   if (!total) return 0
   return Math.min(100, Math.max(0, (received / total) * 100))
+}
+
+function isGzipName(name: string): boolean {
+  return /\.(gz|gzip)$/i.test(name)
+}
+
+function decompressedName(name: string): string {
+  return name.replace(/\.(gz|gzip)$/i, '')
+}
+
+/** 读取 gzip 末尾 ISIZE 字段，得到解压后大小（4GB 以内精确） */
+async function readGzipSize(filePath: string): Promise<number> {
+  try {
+    const handle = await open(filePath, 'r')
+    try {
+      const info = await handle.stat()
+      if (info.size < 4) return 0
+      const buffer = Buffer.alloc(4)
+      await handle.read(buffer, 0, 4, info.size - 4)
+      return buffer.readUInt32LE(0)
+    } finally {
+      await handle.close()
+    }
+  } catch {
+    return 0
+  }
+}
+
+interface DecompressOptions {
+  gzPath: string
+  outPath: string
+  jobId: string
+  emit: Emit
+  signal: AbortSignal
+  sourceId: PrepareSourceId
+  total?: number
+}
+
+async function decompressImage(options: DecompressOptions): Promise<number> {
+  const { gzPath, outPath, jobId, emit, signal, sourceId } = options
+  const estimated = options.total ?? (await readGzipSize(gzPath))
+  const partPath = `${outPath}.part`
+  let written = 0
+  let lastEmitAt = 0
+
+  emitProgress(emit, jobId, {
+    phase: 'verifying',
+    sourceId,
+    received: 0,
+    total: estimated,
+    percent: 0,
+    message: mt('progress.decompressing')
+  })
+
+  const meter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      written += chunk.length
+      const now = Date.now()
+      if (now - lastEmitAt >= 160) {
+        lastEmitAt = now
+        emitProgress(emit, jobId, {
+          phase: 'verifying',
+          sourceId,
+          received: written,
+          total: estimated,
+          percent: pagePercent(written, estimated),
+          message: mt('progress.decompressing')
+        })
+      }
+      callback(null, chunk)
+    }
+  })
+
+  try {
+    await pipeline(
+      createReadStream(gzPath, { highWaterMark: 4 * 1024 * 1024 }),
+      createGunzip(),
+      meter,
+      createWriteStream(partPath),
+      { signal }
+    )
+    await rename(partPath, outPath)
+  } catch (error) {
+    await rm(partPath, { force: true }).catch(() => undefined)
+    if (signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+      throw new PrepareAbortError()
+    }
+    throw error
+  }
+
+  const info = await stat(outPath)
+  emitProgress(emit, jobId, {
+    phase: 'verifying',
+    sourceId,
+    received: info.size,
+    total: info.size,
+    percent: 100,
+    message: mt('progress.decompressing')
+  })
+  return info.size
 }
 
 function sourceLabel(source: ImageSource): string {
@@ -210,6 +314,33 @@ function requireImage(model: ModelInfo): ImageInfo {
   return model.image
 }
 
+async function ensureDecompressed(
+  archivePath: string,
+  finalPath: string,
+  gzipped: boolean,
+  options: { jobId: string; emit: Emit; signal: AbortSignal; sourceId: PrepareSourceId }
+): Promise<number> {
+  if (!gzipped) return (await stat(archivePath)).size
+
+  const estimate = await readGzipSize(archivePath)
+  if (existsSync(finalPath)) {
+    const info = await stat(finalPath)
+    if (!estimate || info.size === estimate) return info.size
+    await rm(finalPath, { force: true })
+  }
+
+  await ensureFreeSpace(path.dirname(finalPath), estimate)
+  return decompressImage({
+    gzPath: archivePath,
+    outPath: finalPath,
+    jobId: options.jobId,
+    emit: options.emit,
+    signal: options.signal,
+    sourceId: options.sourceId,
+    total: estimate
+  })
+}
+
 async function prepareWithSources(
   model: ModelInfo,
   preferredSource: SourceId,
@@ -221,11 +352,46 @@ async function prepareWithSources(
   const dir = cacheDir()
   await mkdir(dir, { recursive: true })
 
-  const finalPath = path.join(dir, image.fileName)
+  const archivePath = path.join(dir, image.fileName)
+  const gzipped = isGzipName(image.fileName)
+  const finalName = gzipped ? decompressedName(image.fileName) : image.fileName
+  const finalPath = path.join(dir, finalName)
   const expected = normalizeSha(image.sha256)
 
+  const buildResult = (
+    archiveHash: string,
+    size: number,
+    sourceId: PrepareSourceId,
+    fromCache: boolean
+  ): PrepareResult => {
+    emitProgress(emit, jobId, {
+      phase: 'ready',
+      sourceId,
+      sha256: archiveHash,
+      expectedSha256: expected,
+      hashMatched: expected ? true : null,
+      filePath: finalPath,
+      fromCache,
+      total: size,
+      received: size,
+      percent: 100,
+      message: mt('progress.ready')
+    })
+    return {
+      filePath: finalPath,
+      fileName: finalName,
+      size,
+      sha256: archiveHash,
+      expectedSha256: expected,
+      hashMatched: expected ? true : null,
+      fromCache,
+      sourceId,
+      version: image.version
+    }
+  }
+
   // 优先复用已下载并通过校验的缓存
-  if (existsSync(finalPath)) {
+  if (existsSync(archivePath)) {
     emitProgress(emit, jobId, {
       phase: 'verifying',
       sourceId: preferredSource,
@@ -235,7 +401,7 @@ async function prepareWithSources(
       message: mt('progress.cacheFound')
     })
     try {
-      const cachedHash = await hashFile(finalPath, signal, (processed, total) => {
+      const cachedHash = await hashFile(archivePath, signal, (processed, total) => {
         emitProgress(emit, jobId, {
           phase: 'verifying',
           sourceId: preferredSource,
@@ -246,35 +412,18 @@ async function prepareWithSources(
         })
       })
       if (!expected || cachedHash === expected) {
-        emitProgress(emit, jobId, {
-          phase: 'ready',
-          sourceId: preferredSource,
-          sha256: cachedHash,
-          expectedSha256: expected,
-          hashMatched: expected ? true : null,
-          filePath: finalPath,
-          fromCache: true,
-          total: image.size,
-          received: image.size,
-          percent: 100,
-          message: mt('progress.ready')
+        const size = await ensureDecompressed(archivePath, finalPath, gzipped, {
+          jobId,
+          emit,
+          signal,
+          sourceId: preferredSource
         })
-        return {
-          filePath: finalPath,
-          fileName: image.fileName,
-          size: image.size,
-          sha256: cachedHash,
-          expectedSha256: expected,
-          hashMatched: expected ? true : null,
-          fromCache: true,
-          sourceId: preferredSource,
-          version: image.version
-        }
+        return buildResult(cachedHash, size, preferredSource, true)
       }
-      await rm(finalPath, { force: true })
+      await rm(archivePath, { force: true })
     } catch (error) {
       if (error instanceof PrepareAbortError) throw error
-      await rm(finalPath, { force: true }).catch(() => undefined)
+      await rm(archivePath, { force: true }).catch(() => undefined)
     }
   }
 
@@ -287,7 +436,7 @@ async function prepareWithSources(
     const source = image.sources.find((item) => item.id === sourceId)
     if (!source) continue
 
-    const partPath = `${finalPath}.${sourceId}.part`
+    const partPath = `${archivePath}.${sourceId}.part`
     try {
       if (failures.length > 0) {
         emitProgress(emit, jobId, {
@@ -318,35 +467,18 @@ async function prepareWithSources(
         message: expected ? mt('progress.hashVerified') : mt('progress.hashComputed')
       })
 
-      await rename(partPath, finalPath)
+      await rename(partPath, archivePath)
 
       await new Promise((resolve) => setTimeout(resolve, 260))
 
-      emitProgress(emit, jobId, {
-        phase: 'ready',
-        sourceId,
-        sha256: downloadedHash,
-        expectedSha256: expected,
-        hashMatched: expected ? true : null,
-        filePath: finalPath,
-        fromCache: false,
-        total: image.size,
-        received: image.size,
-        percent: 100,
-        message: mt('progress.ready')
+      const size = await ensureDecompressed(archivePath, finalPath, gzipped, {
+        jobId,
+        emit,
+        signal,
+        sourceId
       })
 
-      return {
-        filePath: finalPath,
-        fileName: image.fileName,
-        size: image.size,
-        sha256: downloadedHash,
-        expectedSha256: expected,
-        hashMatched: expected ? true : null,
-        fromCache: false,
-        sourceId,
-        version: image.version
-      }
+      return buildResult(downloadedHash, size, sourceId, false)
     } catch (error) {
       await rm(partPath, { force: true }).catch(() => undefined)
       if (error instanceof PrepareAbortError || signal.aborted) {
@@ -416,26 +548,77 @@ export async function prepareLocalImage(
       })
     })
 
-    const expected = normalizeSha(model.image?.sha256)
+    const gzipped = isGzipName(filePath)
+    // 只有压缩包能对应 Release 提供的 SHA-256；手动解压后的 .img 无法比对
+    const expected = gzipped ? normalizeSha(model.image?.sha256) : ''
     const hashMatched: boolean | null = expected ? sha256 === expected : null
 
+    if (hashMatched === false) {
+      emitProgress(emit, options.jobId, {
+        phase: 'error',
+        sourceId: 'local',
+        sha256,
+        expectedSha256: expected,
+        hashMatched,
+        filePath,
+        total: info.size,
+        received: info.size,
+        percent: 100,
+        message: mt('err.shaMismatch')
+      })
+
+      return {
+        filePath,
+        fileName: path.basename(filePath),
+        size: info.size,
+        sha256,
+        expectedSha256: expected,
+        hashMatched,
+        fromCache: false,
+        sourceId: 'local',
+        version: model.image?.version ?? ''
+      }
+    }
+
+    let flashPath = filePath
+    let flashName = path.basename(filePath)
+    let flashSize = info.size
+
+    if (gzipped) {
+      const dir = cacheDir()
+      await mkdir(dir, { recursive: true })
+      flashName = `local-${decompressedName(flashName)}`
+      flashPath = path.join(dir, flashName)
+      const estimate = await readGzipSize(filePath)
+      await ensureFreeSpace(dir, estimate)
+      flashSize = await decompressImage({
+        gzPath: filePath,
+        outPath: flashPath,
+        jobId: options.jobId,
+        emit,
+        signal: controller.signal,
+        sourceId: 'local',
+        total: estimate
+      })
+    }
+
     emitProgress(emit, options.jobId, {
-      phase: hashMatched === false ? 'error' : 'ready',
+      phase: 'ready',
       sourceId: 'local',
       sha256,
       expectedSha256: expected,
       hashMatched,
-      filePath,
-      total: info.size,
-      received: info.size,
+      filePath: flashPath,
+      total: flashSize,
+      received: flashSize,
       percent: 100,
-      message: hashMatched === false ? mt('err.shaMismatch') : mt('progress.ready')
+      message: mt('progress.ready')
     })
 
     return {
-      filePath,
-      fileName: path.basename(filePath),
-      size: info.size,
+      filePath: flashPath,
+      fileName: flashName,
+      size: flashSize,
       sha256,
       expectedSha256: expected,
       hashMatched,

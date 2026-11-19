@@ -203,6 +203,7 @@ export const ru: Messages = {
 
   'progress.downloading': 'Загрузка с {source}…',
   'progress.downloaded': 'Загрузка завершена',
+  'progress.decompressing': 'Распаковка образа…',
   'progress.switching': '{source} недоступен, переключение источника…',
   'progress.cacheFound': 'Найден локальный кэш, проверка…',
   'progress.cacheVerifying': 'Проверка локального кэша…',

@@ -203,6 +203,7 @@ export const ko: Messages = {
 
   'progress.downloading': '{source}에서 이미지 다운로드 중…',
   'progress.downloaded': '다운로드 완료',
+  'progress.decompressing': '이미지 압축 해제 중…',
   'progress.switching': '{source}을(를) 사용할 수 없어 소스를 전환합니다…',
   'progress.cacheFound': '로컬 캐시를 찾았습니다. 검증 중…',
   'progress.cacheVerifying': '로컬 캐시 검증 중…',

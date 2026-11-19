@@ -204,6 +204,7 @@ export const en = {
 
   'progress.downloading': 'Downloading from {source}…',
   'progress.downloaded': 'Download complete',
+  'progress.decompressing': 'Decompressing image…',
   'progress.switching': '{source} is unavailable, switching source…',
   'progress.cacheFound': 'Local cache found, verifying…',
   'progress.cacheVerifying': 'Verifying local cache…',

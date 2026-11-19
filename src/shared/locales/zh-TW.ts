@@ -203,6 +203,7 @@ export const zhTW: Messages = {
 
   'progress.downloading': '正在從{source}下載映像…',
   'progress.downloaded': '下載完成',
+  'progress.decompressing': '正在解壓縮映像…',
   'progress.switching': '{source}無法使用，正在自動切換下載來源…',
   'progress.cacheFound': '發現本機快取，正在驗證完整性…',
   'progress.cacheVerifying': '正在驗證本機快取…',

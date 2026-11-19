@@ -203,6 +203,7 @@ export const zhCN: Messages = {
 
   'progress.downloading': '正在从{source}下载镜像…',
   'progress.downloaded': '下载完成',
+  'progress.decompressing': '正在解压镜像…',
   'progress.switching': '{source}不可用，正在自动切换下载源…',
   'progress.cacheFound': '发现本地缓存，正在校验完整性…',
   'progress.cacheVerifying': '正在校验本地缓存…',

@@ -203,6 +203,7 @@ export const es: Messages = {
 
   'progress.downloading': 'Descargando desde {source}…',
   'progress.downloaded': 'Descarga completada',
+  'progress.decompressing': 'Descomprimiendo la imagen…',
   'progress.switching': '{source} no está disponible, cambiando de origen…',
   'progress.cacheFound': 'Caché local encontrada, verificando…',
   'progress.cacheVerifying': 'Verificando la caché local…',

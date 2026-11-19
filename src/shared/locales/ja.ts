@@ -203,6 +203,7 @@ export const ja: Messages = {
 
   'progress.downloading': '{source} からダウンロード中…',
   'progress.downloaded': 'ダウンロード完了',
+  'progress.decompressing': 'イメージを展開しています…',
   'progress.switching': '{source} が利用できないため、ダウンロード元を切り替えます…',
   'progress.cacheFound': 'ローカルキャッシュを検出しました。検証中…',
   'progress.cacheVerifying': 'ローカルキャッシュを検証中…',
